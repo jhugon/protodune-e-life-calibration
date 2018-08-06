@@ -134,6 +134,8 @@ print "B ",B," ",BErr;
 lifeInv = -B;
 lifeInvErr = BErr / (B * B) ;
 
+logFun_xs = []
+logFun_ys = []
 # calculate chisq
 chi2 = 0;
 for ihist in range(nBins):
@@ -146,6 +148,8 @@ for ihist in range(nBins):
   arg = (yy - ave[ihist]) / err[ihist];
   chi2 += arg * arg;
   print "chk ", ihist, " xx ", xx, " yy ", yy, " ave ", ave[ihist], " arg ", arg, "\n";
+  logFun_xs.append(xx)
+  logFun_ys.append(A-xx*lifeInv)
 chi2ndof = chi2 / ndof;
 
 ax.set_ylim(0,qMPV*8)
@@ -161,6 +165,8 @@ fig.savefig("Landau.pdf")
 
 fig, ax = mpl.subplots()
 ax.plot(logPlot_xs,logPlot_ys,"bo")
+ax.plot(logFun_xs,logFun_ys,"g-")
+ax.plot(ts,numpy.log(qMPV)-ts/lifetimeTrue,"m-")
 ax.set_xlabel("Drift Time [us]")
 ax.set_ylabel("log(Charge)")
 fig.savefig("LandauLog.png")
