@@ -1191,7 +1191,7 @@ class DataMCCategoryStack(DataMCStack):
       canvas.SetLogy(False)
       canvas.SetLogx(False)
 
-def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],xlim=[],ylim=[],logy=False,colors=None,normalize=False):
+def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],xlim=[],ylim=[],logy=False,colors=None,normalize=False,rebin=None):
   if colors is None:
     colors = COLORLIST
   freeTopSpace = 0.35
@@ -1200,6 +1200,9 @@ def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=
   if normalize:
     for hist in hists:
       normalizeHist(hist)
+  if not (rebin is None):
+    for hist in hists:
+      hist.Rebin(rebin)
   axisHist = makeStdAxisHist(hists,logy=logy,freeTopSpace=freeTopSpace,xlim=xlim,ylim=ylim)
   setHistTitles(axisHist,xtitle,ytitle)
   axisHist.Draw()

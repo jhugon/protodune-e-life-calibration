@@ -11,8 +11,14 @@ if __name__ == "__main__":
 
   #f = root.TFile("Lifetime_hist.root")
   #f = root.TFile("Lifetime_10_noSCE.root")
-  f = root.TFile("Lifetime_1k_SCE.root")
+  #f = root.TFile("Lifetime_1k_SCE.root")
   title = "1k Events, SCE "
+  f = root.TFile("Lifetime_1k_SCE.root")
+  #title = "1k Events, No SCE "
+  #f = root.TFile("Lifetime_1k_noSCE.root")
+  #title = "100 Events, SCE, > 400 Hits "
+  #f = root.TFile("Lifetime_100_SCE.root")
+  #title = "100 Events, SCE"
   for i in range(1,10):
     basename = "lifetime/hitChargeVTick"
     scattername = basename+"_"+str(i)
@@ -64,7 +70,7 @@ if __name__ == "__main__":
     c.SaveAs("ClusterFit_"+str(i)+".png")
 
 
-  plotHistsSimple([f.Get("lifetime/Life")],None,"Electron Lifetime [ms]","Clusters / Bin",c,"LifetimeAll",captionArgs=[title])
+  plotHistsSimple([f.Get("lifetime/Life")],None,"Electron Lifetime [ms]","Clusters / Bin",c,"LifetimeAll",captionArgs=[title],rebin=None)
 
   plotHistsSimple([f.Get("lifetime/ChiDOFZoom")],None,"#chi^2/DOF","Clusters / Bin",c,"Chi2",captionArgs=[title])
 

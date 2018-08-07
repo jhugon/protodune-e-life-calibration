@@ -163,6 +163,7 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
     ax.errorbar(numpy.arange(nBins)*usPerBin+0.5*usPerBin,ave,xerr=0.5*usPerBin,yerr=err,fmt="ob")
     ax.set_xlabel("Drift Time [us]")
     ax.set_ylabel("Charge")
+    ax.set_ylim(0,1000)
     fig.savefig("Landau{}.png".format(suffix))
     fig.savefig("Landau{}.pdf".format(suffix))
     
@@ -179,16 +180,15 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
   return 1./lifeInv
 
 if __name__ == "__main__":
-  nPoints = 400
-  trackSlope = 0.15 # points / us 
-  #trackSlope = 5 # points / us 
+  nPoints = 100
+  trackSlope = 0.5 # points / us 
   qMPV = 300.
   lifetimeTrue = 3000. # us
 
   lifes = []
   for iCluster in range(1000):
     doPlots = (iCluster < 5)
-    life = toyCluster(nPoints,qMPV,lifetimeTrue,suffix="_{}".format(iCluster),doPlots=doPlots)
+    life = toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=trackSlope,suffix="_{}".format(iCluster),doPlots=doPlots)
     lifes.append(life/1000.)
 
   fig, ax = mpl.subplots()
