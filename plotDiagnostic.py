@@ -80,3 +80,7 @@ if __name__ == "__main__":
   plotHist2DSimple(f.Get("lifetime/LifeVChargeEff"),"Cluster Charge Efficiency","Electron Lifetime [ms]",c,"LifeVChargeEff",captionArgs=[title])
   plotHist2DSimple(f.Get("lifetime/LifeVZenith"),"True Particle Zenith Angle [deg]","Electron Lifetime [ms]",c,"LifeVZenithAngle",captionArgs=[title])
   plotHist2DSimple(f.Get("lifetime/LifeVAzimuth"),"True Particle Azimuth Angle [deg]","Electron Lifetime [ms]",c,"LifeVAzimuthAngle",captionArgs=[title])
+
+  plotHist2DSimple(f.Get("lifetime/LifeVNHits"),"Number of Hits in Cluster","Electron Lifetime [ms]",c,"LifeVNHits",captionArgs=[title])
+  plotHist2DSimple(f.Get("lifetime/LifeVNBins"),"Number of Histogram Bins","Electron Lifetime [ms]",c,"LifeVNBins",captionArgs=[title])
+  plotHist2DSimple(f.Get("lifetime/LifeVMaxDriftTime"),"Electron Drift Time [ms]","Electron Lifetime [ms]",c,"LifeVMaxDriftTime",captionArgs=[title])

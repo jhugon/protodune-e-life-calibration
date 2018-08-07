@@ -6,19 +6,18 @@ from matplotlib import pylab as mpl
 
 RAND = root.TRandom3(7)
 
-def toyCluster(nPoints,qMPV,lifetimeTrue,driftSpeed=1.,trackSlope=1.,ticksPerBin=60,msPerTick=1.,suffix="",doPlots=True):
+def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix="",doPlots=True):
   """
   qMPV is the true charge deposited
   lifetimeTrue is the true lifetime in us
-  dirftSpeed is in us / tick
-  trackSlope is ticks / point
+  trackSlope is points / us
   """
   landauWidth = qMPV*0.22
-  nBins = nPoints // ticksPerBin
+  nBins = int(nPoints // (trackSlope*usPerBin))
 
-  ts = numpy.zeros(nPoints)
-  qTrues = numpy.zeros(nPoints)
-  qMeass = numpy.zeros(nPoints)
+  ts = numpy.zeros(nPoints) # in us
+  qTrues = numpy.zeros(nPoints) # in ADC
+  qMeass = numpy.zeros(nPoints) # in ADC
   
   tck = numpy.zeros(nBins)
   ave = numpy.zeros(nBins)
@@ -32,11 +31,11 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,driftSpeed=1.,trackSlope=1.,ticksPerBin
   
   for iPoint in range(nPoints):
       # correct for dumb root MPV!!!!
-      param2 = 4.*landauWidth
+      param2 = landauWidth
       param1 = qMPV*0.22278+param2
       qTrue = RAND.Landau(qMPV,landauWidth)
       #qTrue = RAND.Landau(param1,param2)
-      t = iPoint * trackSlope # ticks
+      t = iPoint / trackSlope
       qMeas = qTrue*numpy.exp(-t/lifetimeTrue)
   
       ts[iPoint] = t
@@ -44,7 +43,7 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,driftSpeed=1.,trackSlope=1.,ticksPerBin
       qMeass[iPoint] = qMeas
   
       ## Now do the fit stuff
-      iBin = t // ticksPerBin
+      iBin = t // usPerBin
       if iBin < nBins and qMeas < 1500.:
         tck[iBin] += t
         ave[iBin] += qMeas
@@ -69,7 +68,7 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,driftSpeed=1.,trackSlope=1.,ticksPerBin
   for iPoint in range(nPoints):
       t = ts[iPoint]
       qMeas = qMeass[iPoint]
-      iBin = t / ticksPerBin
+      iBin = t / usPerBin
       if iBin < nBins and qMeas > minChg[iBin] and qMeas < maxChg[iBin]:
         tck[iBin] += t
         ave[iBin] += qMeas
@@ -108,7 +107,7 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,driftSpeed=1.,trackSlope=1.,ticksPerBin
        continue;
     if(err[ihist] == 0):
       continue;
-    xx = (tck[ihist] - tck[0]) * msPerTick;
+    xx = (tck[ihist] - tck[0]);
     yy = numpy.log(ave[ihist]);
     logPlot_xs.append(xx)
     logPlot_ys.append(yy)
@@ -124,16 +123,16 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,driftSpeed=1.,trackSlope=1.,ticksPerBin
     ++fitcnt;
   # calculate coefficients
   delta = Sum * sumx2 - sumx * sumx;
-  print "delta ",delta
+  #print "delta ",delta
   A = (sumx2 * sumy - sumx * sumxy) / delta;
-  print "A ", A
+  #print "A ", A
   # slope = 1 / lifetime
   B = (sumxy * Sum  - sumx * sumy) / delta;
   # calculate the error
   ndof = fitcnt - 2;
   varnce = (sumy2 + A*A*Sum + B*B*sumx2 - 2 * (A*sumy + B*sumxy - A*B*sumx)) / ndof;
   BErr = numpy.sqrt(varnce * Sum / delta);
-  print "B ",B," ",BErr;
+  #print "B ",B," ",BErr;
   
   lifeInv = -B;
   lifeInvErr = BErr / (B * B) ;
@@ -147,7 +146,7 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,driftSpeed=1.,trackSlope=1.,ticksPerBin
        continue;
     if(err[ihist] == 0):
        continue;
-    xx = (tck[ihist] - tck[0]) * msPerTick;
+    xx = (tck[ihist] - tck[0]);
     yy = numpy.exp(A - xx * lifeInv);
     arg = (yy - ave[ihist]) / err[ihist];
     chi2 += arg * arg;
@@ -161,7 +160,7 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,driftSpeed=1.,trackSlope=1.,ticksPerBin
     ax.scatter(ts,qMeass,2.,c='k',lw=0)
     ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-g')
     #ax.plot(tck,ave,'og')
-    ax.errorbar(numpy.arange(nBins)*ticksPerBin+0.5*ticksPerBin,ave,xerr=0.5*ticksPerBin,yerr=err,fmt="ob")
+    ax.errorbar(numpy.arange(nBins)*usPerBin+0.5*usPerBin,ave,xerr=0.5*usPerBin,yerr=err,fmt="ob")
     ax.set_xlabel("Drift Time [us]")
     ax.set_ylabel("Charge")
     fig.savefig("Landau{}.png".format(suffix))
@@ -180,12 +179,14 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,driftSpeed=1.,trackSlope=1.,ticksPerBin
   return 1./lifeInv
 
 if __name__ == "__main__":
-  nPoints = 1000
+  nPoints = 400
+  trackSlope = 0.15 # points / us 
+  #trackSlope = 5 # points / us 
   qMPV = 300.
   lifetimeTrue = 3000. # us
 
   lifes = []
-  for iCluster in range(100):
+  for iCluster in range(1000):
     doPlots = (iCluster < 5)
     life = toyCluster(nPoints,qMPV,lifetimeTrue,suffix="_{}".format(iCluster),doPlots=doPlots)
     lifes.append(life/1000.)
