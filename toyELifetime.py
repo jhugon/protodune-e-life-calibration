@@ -2,11 +2,12 @@
 
 import ROOT as root
 import numpy
+import sys
 from matplotlib import pylab as mpl
 
 RAND = root.TRandom3(7)
 
-def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix="",doPlots=True):
+def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix="",doLogFit=False,doPlots=True):
   """
   qMPV is the true charge deposited
   lifetimeTrue is the true lifetime in us
@@ -43,12 +44,19 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
       qMeass[iPoint] = qMeas
   
       ## Now do the fit stuff
-      iBin = t // usPerBin
-      if iBin < nBins and qMeas < 1500.:
-        tck[iBin] += t
-        ave[iBin] += qMeas
-        err[iBin] += qMeas*qMeas
-        cnt[iBin] += 1
+      iBin = int(t // usPerBin)
+      if doLogFit:
+        if iBin < nBins:
+          tck[iBin] += t
+          ave[iBin] += numpy.log(qMeas)
+          err[iBin] += numpy.log(qMeas)**2
+          cnt[iBin] += 1
+      else:
+        if iBin < nBins and qMeas < 1500.:
+          tck[iBin] += t
+          ave[iBin] += qMeas
+          err[iBin] += qMeas*qMeas
+          cnt[iBin] += 1
   
   tck /= cnt
   ave /= cnt
@@ -59,24 +67,25 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
   maxChg = ave * 1.3
   minChg = ave * 0.5
   
-  tck = numpy.zeros(nBins)
-  ave = numpy.zeros(nBins)
-  err = numpy.zeros(nBins)
-  cnt = numpy.zeros(nBins)
-  
-  # now truncate
-  for iPoint in range(nPoints):
-      t = ts[iPoint]
-      qMeas = qMeass[iPoint]
-      iBin = t / usPerBin
-      if iBin < nBins and qMeas > minChg[iBin] and qMeas < maxChg[iBin]:
-        tck[iBin] += t
-        ave[iBin] += qMeas
-        err[iBin] += qMeas*qMeas
-        cnt[iBin] += 1
-  
-  tck /= cnt
-  ave /= cnt
+  if not doLogFit:
+    tck = numpy.zeros(nBins)
+    ave = numpy.zeros(nBins)
+    err = numpy.zeros(nBins)
+    cnt = numpy.zeros(nBins)
+    
+    # now truncate
+    for iPoint in range(nPoints):
+        t = ts[iPoint]
+        qMeas = qMeass[iPoint]
+        iBin = int(t // usPerBin)
+        if iBin < nBins and qMeas > minChg[iBin] and qMeas < maxChg[iBin]:
+          tck[iBin] += t
+          ave[iBin] += qMeas
+          err[iBin] += qMeas*qMeas
+          cnt[iBin] += 1
+    
+    tck /= cnt
+    ave /= cnt
   
   arg = err - cnt * ave * ave
   err = numpy.sqrt(arg / (cnt - 1))
@@ -108,7 +117,10 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
     if(err[ihist] == 0):
       continue;
     xx = (tck[ihist] - tck[0]);
-    yy = numpy.log(ave[ihist]);
+    if doLogFit:
+      yy = ave[ihist]
+    else:
+      yy = numpy.log(ave[ihist]);
     logPlot_xs.append(xx)
     logPlot_ys.append(yy)
     # error on log(x) = dx / x
@@ -169,11 +181,13 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
     
     
     fig, ax = mpl.subplots()
+    ax.scatter(ts-tck[0],numpy.log(qMeass),2.,c='k',lw=0)
     ax.plot(logPlot_xs,logPlot_ys,"bo")
     ax.plot(logFun_xs,logFun_ys,"g-")
     ax.plot(ts,numpy.log(qMPV)-ts/lifetimeTrue,"m-")
     ax.set_xlabel("Drift Time [us]")
     ax.set_ylabel("log(Charge)")
+    ax.set_ylim(4.5,7)
     fig.savefig("LandauLog{}.png".format(suffix))
     fig.savefig("LandauLog{}.pdf".format(suffix))
 
@@ -181,14 +195,48 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
 
 if __name__ == "__main__":
   nPoints = 100
+  #nPoints = 400
+  #trackSlope = 0.2 # points / us 
+  #trackSlope = 0.3 # points / us 
   trackSlope = 0.5 # points / us 
   qMPV = 300.
   lifetimeTrue = 3000. # us
+  doLogFit = True
+
+  landauPoints = numpy.array([RAND.Landau(qMPV,qMPV*0.22) for i in range(100000)])
+  fig, ax = mpl.subplots()
+  ax.hist(landauPoints,bins=100,range=[0,2000],histtype='step')
+  ax.axvline(numpy.mean(landauPoints))
+  ax.set_xlabel("Landau Distributed Points")
+  ax.set_ylabel("Points / Bin")
+  fig.savefig("ToyLandau.png")
+  fig.savefig("ToyLandau.pdf")
+
+  logLandauPoints = numpy.log(landauPoints)
+  logmean = numpy.mean(logLandauPoints)
+  logrms = numpy.std(logLandauPoints)
+  truncatedPoints = logLandauPoints[logLandauPoints < logmean+1.0*logrms]
+  logtruncmean = numpy.mean(truncatedPoints)
+  logtruncrms = numpy.std(truncatedPoints)
+  logtruncmeanerror = logtruncrms*len(truncatedPoints)**(-0.5)
+
+  fig, ax = mpl.subplots()
+  ax.axvspan(logmean-logrms,logmean+logrms,fc="r",alpha=0.3)
+  ax.axvline(logmean,c='r')
+  #ax.axvspan(logtruncmean-logtruncrms,logtruncmean+logtruncrms,fc="b",alpha=0.3)
+  ax.axvspan(logtruncmean-logtruncmeanerror,logtruncmean+logtruncmeanerror,fc="b",alpha=0.3)
+  ax.axvline(logtruncmean,c='b')
+  ax.hist(logLandauPoints,bins=100,range=[4,12],histtype='step',color='k')
+  ax.set_xlabel("Log-Landau Distributed Points")
+  ax.set_ylabel("Points / Bin")
+  fig.savefig("ToyLogLandau.png")
+  fig.savefig("ToyLogLandau.pdf")
+  
 
   lifes = []
   for iCluster in range(1000):
     doPlots = (iCluster < 5)
-    life = toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=trackSlope,suffix="_{}".format(iCluster),doPlots=doPlots)
+    life = toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=trackSlope,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots)
     lifes.append(life/1000.)
 
   fig, ax = mpl.subplots()
