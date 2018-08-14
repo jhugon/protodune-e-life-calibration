@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 
-import ROOT as root
+from helpers import *
+#import ROOT as root
 import numpy
 import sys
 from matplotlib import pylab as mpl
 
+root.gROOT.SetBatch(True)
 RAND = root.TRandom3(7)
 
-def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,doGaus=False):
+def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,doGaus=False,chargeRatioVdtHist=None):
   """
   qMPV is the true charge deposited
   lifetimeTrue is the true lifetime in us
@@ -27,7 +29,7 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
   ave = numpy.zeros(nBins)
   err = numpy.zeros(nBins)
   cnt = numpy.zeros(nBins)
-  
+
   fig = None
   ax = None
   if doPlots:
@@ -186,12 +188,12 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
   for ihist in range(nBins):
     #ts, qMeass
     inBin = numpy.logical_and(ts > (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
-    nPoints = len(qMeass[inBin])
+    nGoodPoints = len(qMeass[inBin])
     redoave[ihist] = numpy.mean(qMeass[inBin])
-    redoavevariance[ihist] = numpy.var(qMeass[inBin])/nPoints
+    redoavevariance[ihist] = numpy.var(qMeass[inBin])/nGoodPoints
     redot[ihist] = numpy.mean(ts[inBin])
     redologave[ihist] = numpy.mean(qMeassLog[inBin])
-    redologaveerr[ihist] = numpy.std(qMeassLog[inBin])/numpy.sqrt(nPoints)
+    redologaveerr[ihist] = numpy.std(qMeassLog[inBin])/numpy.sqrt(nGoodPoints)
   redoaveerr = numpy.sqrt(redoavevariance)
   redoavelog = numpy.log(redoave)
   redoaveerrlog = numpy.abs(redoaveerr/redoave)
@@ -204,7 +206,39 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
   numpyLogLifeVar = numpy.abs(covLogFirst[0][0]/coefsLogFirst[0]**4)
   #print "Bruce: {:.2f}, Numpy: {:.2f} Numpy Log First: {:.2f}".format(1./lifeInv/1000.,-1/coefs[0]/1000.,-1/coefsLogFirst[0]/1000.)
   #print "Pull: Numpy: {:.2f} Numpy Log First: {:.2f}".format((numpyLife-lifetimeTrue)/numpy.sqrt(numpyLifeVar),(numpyLogLife-lifetimeTrue)/numpy.sqrt(numpyLogLifeVar))
-  
+
+
+  if chargeRatioVdtHist:
+    qMeassRatios = numpy.zeros(nPoints**2)
+    qMeassDeltaTimes = numpy.zeros(nPoints**2)
+    k = 0
+    for i in range(0,nPoints,10):
+      for j in range(i,nPoints):
+        chargeRatioVdtHist.Fill(ts[j]-ts[i],log(qMeass[j]/qMeass[i]))
+        qMeassRatios[k] = qMeass[j]/qMeass[i]
+        qMeassDeltaTimes[k] = ts[j]-ts[i]
+        k += 1
+    qMeassRatios = qMeassRatios[:k]
+    qMeassDeltaTimes = qMeassDeltaTimes[:k]
+    qMeassRatiosLog = numpy.log(qMeassRatios)
+
+    if doPlots:
+      fig, ax = mpl.subplots()
+      ax.scatter(qMeassDeltaTimes,qMeassRatios,2.,c='k',lw=0)
+      ax.set_xlabel("$\Delta t$ [us]")
+      ax.set_ylabel("$Q_1/Q_2$")
+      ax.set_ylim(0,3.5)
+      fig.savefig("Ratios{}.png".format(suffix))
+      fig.savefig("Ratios{}.pdf".format(suffix))
+
+      fig, ax = mpl.subplots()
+      ax.scatter(qMeassDeltaTimes,qMeassRatiosLog,2.,c='k',lw=0)
+      ax.set_xlabel("$\Delta t$ [us]")
+      ax.set_ylabel("$\ln(Q_1/Q_2$)")
+      ax.set_ylim(-1.5,1.5)
+      fig.savefig("RatiosLog{}.png".format(suffix))
+      fig.savefig("RatiosLog{}.pdf".format(suffix))
+
   if doPlots:
     ax.set_ylim(0,qMPV*8)
     ax.scatter(ts,qMeass,2.,c='k',lw=0)
@@ -236,12 +270,12 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
 
 if __name__ == "__main__":
   nBins = 10
-  pointsPerBin = 100./nBins
+  pointsPerBin = 400./nBins
   usPerBin = 100.
   qMPV = 300.
   lifetimeTrue = 3000. # us
   doLogFit = False
-  doGaus = True
+  doGaus = False
 
   #landauPoints = numpy.array([RAND.Landau(qMPV,qMPV*0.22) for i in range(100000)])
   #fig, ax = mpl.subplots()
@@ -272,15 +306,19 @@ if __name__ == "__main__":
   #fig.savefig("ToyLogLandau.png")
   #fig.savefig("ToyLogLandau.pdf")
   
+  #chargeRatioVdt = root.TH2F("chargeRatioVdt","",500,0,2000,500,-1.5,1.5)
+  chargeRatioVdt = root.TH2F("chargeRatioVdt","",100,0,1000,100,-1.5,1.5)
+  setHistTitles(chargeRatioVdt,"#Delta t [us]","log(Q_{1}/Q_{2})")
 
   lifes = []
   lifesNumpy = []
   lifesLogNumpy = []
   pullsNumpy = []
   pullsLogNumpy = []
-  for iCluster in range(1000):
+  #for iCluster in range(1000):
+  for iCluster in range(100):
     doPlots = (iCluster < 5)
-    life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(qMPV,lifetimeTrue,nBins,pointsPerBin,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,doGaus=doGaus)
+    life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(qMPV,lifetimeTrue,nBins,pointsPerBin,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,doGaus=doGaus,chargeRatioVdtHist=chargeRatioVdt)
     lifes.append(life/1000.)
     lifesNumpy.append(lifeNumpy/1000.)
     lifesLogNumpy.append(lifeLogNumpy/1000.)
@@ -310,3 +348,43 @@ if __name__ == "__main__":
   ax.set_ylabel("Toy Clusters / Bin")
   fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
   fig.savefig("Pulls.png")
+
+  if chargeRatioVdt:
+    profileX = chargeRatioVdt.ProfileX()
+    projectionX = chargeRatioVdt.ProjectionX()
+    projectionY = chargeRatioVdt.ProjectionY()
+    setHistTitles(profileX,"#Delta t [us]","<log(Q_{1}/Q_{2})>")
+    setHistTitles(projectionX,"#Delta t [us]","Hit Pairs / Bin")
+    setHistTitles(projectionY,"log(Q_{1}/Q_{2})","Hit Pairs / Bin")
+    canvas = root.TCanvas("c")
+    setupCOLZFrame(canvas)
+    chargeRatioVdt.Draw("colz")
+    profileX.Draw("same")
+    canvas.SaveAs("ChargeRatioVDeltaT.png")
+    setupCOLZFrame(canvas,True)
+    projectionX.Draw()
+    canvas.SaveAs("ChargeRatioVDeltaT_projX.png")
+    projectionY.Draw()
+    canvas.SaveAs("ChargeRatioVDeltaT_projY.png")
+
+    fitfunc = root.TF1("func","pol1",0,5000)
+    fitfunc.SetLineColor(root.kBlue)
+    #fitrslt = profileX.Fit(fitfunc,"WLFSEM","",50,600)
+    #fitrslt = profileX.Fit(fitfunc,"S","",50,600)
+    fitrslt = profileX.Fit(fitfunc,"SFM","",50,600)
+    profileX.Draw("")
+    fitfunc.Draw("same")
+    chi2ndf = fitrslt.Chi2()/fitrslt.Ndf()
+    slope = fitrslt.Parameter(1)
+    slopeErr = fitrslt.ParError(1)
+    lifetime = -1.
+    lifetimeErr = -1.
+    if slope != 0.:
+      lifetime = -1./slope/1000.
+      lifetimeErr = slopeErr/slope**2/1000.
+    drawStandardCaptions(canvas,"Toy Study",
+            captionright1="e^{{-}} Lifetime = {:.2f} +/- {:.2f} ms".format(lifetime,lifetimeErr),
+            captionright2="#chi^{{2}}/NDF = {:.2f}".format(chi2ndf)
+        )
+    canvas.SaveAs("ChargeRatioVDeltaT_profX.png")
+    
