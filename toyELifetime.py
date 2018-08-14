@@ -34,8 +34,9 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
       # correct for dumb root MPV!!!!
       param2 = landauWidth
       param1 = qMPV*0.22278+param2
-      qTrue = RAND.Landau(qMPV,landauWidth)
-      #qTrue = RAND.Landau(param1,param2)
+      qTrue = RAND.Gaus(qMPV,landauWidth)
+      ##qTrue = RAND.Landau(qMPV,landauWidth)
+      ###qTrue = RAND.Landau(param1,param2)
       t = iPoint / trackSlope
       qMeas = qTrue*numpy.exp(-t/lifetimeTrue)
   
@@ -64,8 +65,8 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
   if doPlots:
     ax.plot(tck,ave,'or')
   
-  maxChg = ave * 1.3
-  minChg = ave * 0.5
+  maxChg = ave * 5
+  minChg = ave * 0.2
   
   if not doLogFit:
     tck = numpy.zeros(nBins)
@@ -194,14 +195,15 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
   return 1./lifeInv
 
 if __name__ == "__main__":
-  nPoints = 100
+  nPoints = 200
+  #nPoints = 300
   #nPoints = 400
-  #trackSlope = 0.2 # points / us 
+  trackSlope = 0.2 # points / us 
   #trackSlope = 0.3 # points / us 
-  trackSlope = 0.5 # points / us 
+  #trackSlope = 0.5 # points / us 
   qMPV = 300.
   lifetimeTrue = 3000. # us
-  doLogFit = True
+  doLogFit = False
 
   landauPoints = numpy.array([RAND.Landau(qMPV,qMPV*0.22) for i in range(100000)])
   fig, ax = mpl.subplots()
@@ -240,9 +242,10 @@ if __name__ == "__main__":
     lifes.append(life/1000.)
 
   fig, ax = mpl.subplots()
-  ax.hist(lifes,bins=50,range=[0,5],histtype='step')
+  ax.hist(lifes,bins=30,range=[0,5],histtype='step')
   ax.axvline(lifetimeTrue/1000.,c='g')
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Toy Clusters / Bin")
-  fig.savefig("ToyLifetime.png")
-  fig.savefig("ToyLifetime.pdf")
+  fig.text(0.15,0.9,"Hits: {}, Slope: {} us".format(nPoints,1./trackSlope),ha='left')
+  fig.savefig("ToyLifetime_{}_{}.png".format(nPoints,1./trackSlope))
+  fig.savefig("ToyLifetime_{}_{}.pdf".format(nPoints,1./trackSlope))
