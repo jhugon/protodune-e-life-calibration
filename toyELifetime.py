@@ -7,14 +7,17 @@ from matplotlib import pylab as mpl
 
 RAND = root.TRandom3(7)
 
-def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix="",doLogFit=False,doPlots=True):
+def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="",doLogFit=False,doPlots=True):
   """
   qMPV is the true charge deposited
   lifetimeTrue is the true lifetime in us
   trackSlope is points / us
   """
   landauWidth = qMPV*0.22
-  nBins = int(nPoints // (trackSlope*usPerBin))
+  #nBins = int(nPoints // (trackSlope*usPerBin))
+  nBins = int(nBins)
+  nPoints = int(pointsPerBin * nBins)
+  trackSlope = pointsPerBin / usPerBin
 
   ts = numpy.zeros(nPoints) # in us
   qTrues = numpy.zeros(nPoints) # in ADC
@@ -194,14 +197,12 @@ def toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=0.14,usPerBin=100.,suffix=""
   return 1./lifeInv
 
 if __name__ == "__main__":
-  nPoints = 100
-  #nPoints = 400
-  #trackSlope = 0.2 # points / us 
-  #trackSlope = 0.3 # points / us 
-  trackSlope = 0.5 # points / us 
+  nBins = 10
+  pointsPerBin = 20
+  usPerBin = 100.
   qMPV = 300.
   lifetimeTrue = 3000. # us
-  doLogFit = True
+  doLogFit = False
 
   landauPoints = numpy.array([RAND.Landau(qMPV,qMPV*0.22) for i in range(100000)])
   fig, ax = mpl.subplots()
@@ -236,11 +237,11 @@ if __name__ == "__main__":
   lifes = []
   for iCluster in range(1000):
     doPlots = (iCluster < 5)
-    life = toyCluster(nPoints,qMPV,lifetimeTrue,trackSlope=trackSlope,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots)
+    life = toyCluster(qMPV,lifetimeTrue,nBins,pointsPerBin,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots)
     lifes.append(life/1000.)
 
   fig, ax = mpl.subplots()
-  ax.hist(lifes,bins=50,range=[0,5],histtype='step')
+  ax.hist(lifes,bins=30,range=[0,6],histtype='step')
   ax.axvline(lifetimeTrue/1000.,c='g')
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Toy Clusters / Bin")
