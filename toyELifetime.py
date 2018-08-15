@@ -244,7 +244,7 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
     ax.scatter(ts,qMeass,2.,c='k',lw=0)
     ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
     ax.plot(ts,numpy.exp(ts*B+A),'-g')
-    ax.plot(ts,numpy.exp(ts*coefs[0]+coefs[1]),'-c')
+    #ax.plot(ts,numpy.exp(ts*coefs[0]+coefs[1]),'-c')
     #ax.plot(tck,ave,'og')
     ax.errorbar(numpy.arange(nBins)*usPerBin+0.5*usPerBin,ave,xerr=0.5*usPerBin,yerr=err,fmt="ob")
     ax.set_xlabel("Drift Time [us]")
@@ -258,7 +258,7 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
     ax.scatter(ts-tck[0],numpy.log(qMeass),2.,c='k',lw=0)
     ax.plot(logPlot_xs,logPlot_ys,"bo")
     ax.plot(logFun_xs,logFun_ys,"g-")
-    ax.plot(ts,ts*coefs[0]+coefs[1],'-c')
+    #ax.plot(ts,ts*coefs[0]+coefs[1],'-c')
     ax.plot(ts,numpy.log(qMPV)-ts/lifetimeTrue,"m-")
     ax.set_xlabel("Drift Time [us]")
     ax.set_ylabel("log(Charge)")
@@ -309,6 +309,7 @@ if __name__ == "__main__":
   #chargeRatioVdt = root.TH2F("chargeRatioVdt","",500,0,2000,500,-1.5,1.5)
   chargeRatioVdt = root.TH2F("chargeRatioVdt","",100,0,1000,100,-1.5,1.5)
   setHistTitles(chargeRatioVdt,"#Delta t [us]","log(Q_{1}/Q_{2})")
+  chargeRatioVdt = None
 
   lifes = []
   lifesNumpy = []
@@ -329,7 +330,7 @@ if __name__ == "__main__":
   ax.hist(lifes,bins=30,range=[0,6],histtype='step')
   ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
   ax.hist(lifesLogNumpy,bins=30,range=[0,6],histtype='step')
-  ax.axvline(lifetimeTrue/1000.,c='g')
+  ax.axvline(lifetimeTrue/1000.,c='m')
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Toy Clusters / Bin")
   distType = "Landau"
