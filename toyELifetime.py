@@ -177,35 +177,40 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
   chi2ndof = chi2 / ndof;
 
   ### Redo numpy
+  numpyLife = 0.
+  numpyLogLife = 0.
+  numpyLifeVar = 0.
+  numpyLogLifeVar = 0.
 
-  redoave = numpy.zeros(nBins)
-  redoavevariance = numpy.zeros(nBins)
-  redoaveerr = numpy.zeros(nBins)
-  redologave = numpy.zeros(nBins)
-  redologaveerr = numpy.zeros(nBins)
-  redot = numpy.zeros(nBins)
-  qMeassLog = numpy.log(qMeass)
-  for ihist in range(nBins):
-    #ts, qMeass
-    inBin = numpy.logical_and(ts > (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
-    nGoodPoints = len(qMeass[inBin])
-    redoave[ihist] = numpy.mean(qMeass[inBin])
-    redoavevariance[ihist] = numpy.var(qMeass[inBin])/nGoodPoints
-    redot[ihist] = numpy.mean(ts[inBin])
-    redologave[ihist] = numpy.mean(qMeassLog[inBin])
-    redologaveerr[ihist] = numpy.std(qMeassLog[inBin])/numpy.sqrt(nGoodPoints)
-  redoaveerr = numpy.sqrt(redoavevariance)
-  redoavelog = numpy.log(redoave)
-  redoaveerrlog = numpy.abs(redoaveerr/redoave)
-  
-  coefs, cov = numpy.polyfit(redot,redoavelog,1,w=1./redoaveerrlog,cov=True)
-  coefsLogFirst, covLogFirst = numpy.polyfit(redot,redologave,1,w=1./redologaveerr,cov=True)
-  numpyLife = -1/coefs[0]
-  numpyLogLife = -1/coefsLogFirst[0]
-  numpyLifeVar = numpy.abs(cov[0][0]/coefs[0]**4)
-  numpyLogLifeVar = numpy.abs(covLogFirst[0][0]/coefsLogFirst[0]**4)
-  #print "Bruce: {:.2f}, Numpy: {:.2f} Numpy Log First: {:.2f}".format(1./lifeInv/1000.,-1/coefs[0]/1000.,-1/coefsLogFirst[0]/1000.)
-  #print "Pull: Numpy: {:.2f} Numpy Log First: {:.2f}".format((numpyLife-lifetimeTrue)/numpy.sqrt(numpyLifeVar),(numpyLogLife-lifetimeTrue)/numpy.sqrt(numpyLogLifeVar))
+  if False:
+    redoave = numpy.zeros(nBins)
+    redoavevariance = numpy.zeros(nBins)
+    redoaveerr = numpy.zeros(nBins)
+    redologave = numpy.zeros(nBins)
+    redologaveerr = numpy.zeros(nBins)
+    redot = numpy.zeros(nBins)
+    qMeassLog = numpy.log(qMeass)
+    for ihist in range(nBins):
+      #ts, qMeass
+      inBin = numpy.logical_and(ts > (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
+      nGoodPoints = len(qMeass[inBin])
+      redoave[ihist] = numpy.mean(qMeass[inBin])
+      redoavevariance[ihist] = numpy.var(qMeass[inBin])/nGoodPoints
+      redot[ihist] = numpy.mean(ts[inBin])
+      redologave[ihist] = numpy.mean(qMeassLog[inBin])
+      redologaveerr[ihist] = numpy.std(qMeassLog[inBin])/numpy.sqrt(nGoodPoints)
+    redoaveerr = numpy.sqrt(redoavevariance)
+    redoavelog = numpy.log(redoave)
+    redoaveerrlog = numpy.abs(redoaveerr/redoave)
+    
+    coefs, cov = numpy.polyfit(redot,redoavelog,1,w=1./redoaveerrlog,cov=True)
+    coefsLogFirst, covLogFirst = numpy.polyfit(redot,redologave,1,w=1./redologaveerr,cov=True)
+    numpyLife = -1/coefs[0]
+    numpyLogLife = -1/coefsLogFirst[0]
+    numpyLifeVar = numpy.abs(cov[0][0]/coefs[0]**4)
+    numpyLogLifeVar = numpy.abs(covLogFirst[0][0]/coefsLogFirst[0]**4)
+    #print "Bruce: {:.2f}, Numpy: {:.2f} Numpy Log First: {:.2f}".format(1./lifeInv/1000.,-1/coefs[0]/1000.,-1/coefsLogFirst[0]/1000.)
+    #print "Pull: Numpy: {:.2f} Numpy Log First: {:.2f}".format((numpyLife-lifetimeTrue)/numpy.sqrt(numpyLifeVar),(numpyLogLife-lifetimeTrue)/numpy.sqrt(numpyLogLifeVar))
 
 
   if chargeRatioVdtHist:
@@ -222,7 +227,7 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
     qMeassDeltaTimes = qMeassDeltaTimes[:k]
     qMeassRatiosLog = numpy.log(qMeassRatios)
 
-    if doPlots:
+    if False and doPlots:
       fig, ax = mpl.subplots()
       ax.scatter(qMeassDeltaTimes,qMeassRatios,2.,c='k',lw=0)
       ax.set_xlabel("$\Delta t$ [us]")
@@ -275,7 +280,7 @@ if __name__ == "__main__":
   qMPV = 300.
   lifetimeTrue = 3000. # us
   doLogFit = False
-  doGaus = False
+  doGaus = True
 
   #landauPoints = numpy.array([RAND.Landau(qMPV,qMPV*0.22) for i in range(100000)])
   #fig, ax = mpl.subplots()
@@ -309,15 +314,15 @@ if __name__ == "__main__":
   #chargeRatioVdt = root.TH2F("chargeRatioVdt","",500,0,2000,500,-1.5,1.5)
   chargeRatioVdt = root.TH2F("chargeRatioVdt","",100,0,1000,100,-1.5,1.5)
   setHistTitles(chargeRatioVdt,"#Delta t [us]","log(Q_{1}/Q_{2})")
-  chargeRatioVdt = None
+  #chargeRatioVdt = None
 
   lifes = []
   lifesNumpy = []
   lifesLogNumpy = []
   pullsNumpy = []
   pullsLogNumpy = []
-  #for iCluster in range(1000):
-  for iCluster in range(100):
+  for iCluster in range(10000):
+  #for iCluster in range(100):
     doPlots = (iCluster < 5)
     life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(qMPV,lifetimeTrue,nBins,pointsPerBin,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,doGaus=doGaus,chargeRatioVdtHist=chargeRatioVdt)
     lifes.append(life/1000.)
@@ -351,6 +356,7 @@ if __name__ == "__main__":
   fig.savefig("Pulls.png")
 
   if chargeRatioVdt:
+    #chargeRatioVdt.RebinX(20)
     profileX = chargeRatioVdt.ProfileX()
     projectionX = chargeRatioVdt.ProjectionX()
     projectionY = chargeRatioVdt.ProjectionY()
@@ -361,11 +367,14 @@ if __name__ == "__main__":
     setupCOLZFrame(canvas)
     chargeRatioVdt.Draw("colz")
     profileX.Draw("same")
+    drawStandardCaptions(canvas,"Toy Study")
     canvas.SaveAs("ChargeRatioVDeltaT.png")
     setupCOLZFrame(canvas,True)
     projectionX.Draw()
+    drawStandardCaptions(canvas,"Toy Study")
     canvas.SaveAs("ChargeRatioVDeltaT_projX.png")
     projectionY.Draw()
+    drawStandardCaptions(canvas,"Toy Study")
     canvas.SaveAs("ChargeRatioVDeltaT_projY.png")
 
     fitfunc = root.TF1("func","pol1",0,5000)
@@ -389,3 +398,76 @@ if __name__ == "__main__":
         )
     canvas.SaveAs("ChargeRatioVDeltaT_profX.png")
     
+    gausfunc = root.TF1("gausfunc","gaus",-0.75,0.75)
+    nBinsX = chargeRatioVdt.GetXaxis().GetNbins()
+    muGraph = root.TGraphErrors()
+    muList = numpy.zeros(nBinsX)
+    dtList = numpy.zeros(nBinsX)
+    muErrList = numpy.zeros(nBinsX)
+    for iBinX in range(1,nBinsX+1):
+      deltaTCenter = chargeRatioVdt.GetXaxis().GetBinCenter(iBinX)
+      deltaTLow = chargeRatioVdt.GetXaxis().GetBinLowEdge(iBinX)
+      deltaTHigh = chargeRatioVdt.GetXaxis().GetBinUpEdge(iBinX)
+      xBinHist = getXBinHist(chargeRatioVdt,iBinX)
+      fitrslt = xBinHist.Fit(gausfunc,"S","",-0.75,0.75)
+      chi2ndf = fitrslt.Chi2()/fitrslt.Ndf()
+      gausmu = fitrslt.Parameter(1)
+      gausmuerr = fitrslt.ParError(1)
+      gaussigma = fitrslt.Parameter(2)
+      gaussigmaerr = fitrslt.ParError(2)
+      muGraph.SetPoint(iBinX-1,deltaTCenter,gausmu)
+      muGraph.SetPointError(iBinX-1,0.5*(deltaTHigh-deltaTLow),gausmuerr)
+      muList[iBinX-1] = gausmu
+      muErrList[iBinX-1] = gausmuerr
+      dtList[iBinX-1] = deltaTCenter
+      if iBinX % (nBinsX // 10) == 0:
+        xBinHist.Draw()
+        gausfunc.Draw("same")
+        setHistTitles(xBinHist,"log(Q_{1}/Q_{2})","Hit Pairs / Bin")
+        drawStandardCaptions(canvas,"Toy Study Slice {}, #Delta t: {:.0f} to {:.0f} us".format(iBinX,deltaTLow,deltaTHigh),
+                captionright1="#mu = {:.3f} #pm {:.3f}".format(gausmu,gausmuerr),
+                captionright2="#sigma = {:.3f} #pm {:.3f}".format(gaussigma,gaussigmaerr),
+                captionright3="#chi^{{2}}/NDF = {:.2f}".format(chi2ndf)
+            )
+        canvas.SaveAs("ChargeRatioVDeltaT_binHist{}.png".format(iBinX))
+
+    axisHist = drawGraphs(canvas,[muGraph],"#Delta t [us]","log(Q_{1}/Q_{2})")
+    fitrslt = muGraph.Fit(fitfunc,"S","",500,1000)
+    fitfunc.Draw("same")
+    chi2ndf = fitrslt.Chi2()/fitrslt.Ndf()
+    slope = fitrslt.Parameter(1)
+    slopeErr = fitrslt.ParError(1)
+    lifetime = -1.
+    lifetimeErr = -1.
+    if slope != 0.:
+      lifetime = -1./slope/1000.
+      lifetimeErr = slopeErr/slope**2/1000.
+    drawStandardCaptions(canvas,"Toy Study",
+            captionright1="e^{{-}} Lifetime = {:.2f} +/- {:.2f} ms".format(lifetime,lifetimeErr),
+            captionright2="#chi^{{2}}/NDF = {:.2f}".format(chi2ndf)
+        )
+    canvas.SaveAs("ChargeRatioVDeltaT_gausFitFit.png")
+
+    import scipy.interpolate
+    spline = scipy.interpolate.UnivariateSpline(dtList,muList,w=1/muErrList)
+    splineHard = scipy.interpolate.UnivariateSpline(dtList,muList,w=1/muErrList,s=0)
+    spline2 = scipy.interpolate.UnivariateSpline(dtList,muList,w=1/muErrList,s=len(muErrList)/3.)
+    xs = numpy.linspace(dtList[0],dtList[-1],1000)
+    
+    fig, ax = mpl.subplots()
+    ax.errorbar(dtList,muList,muErrList,fmt='ko',ecolor='k',barsabove=True,markersize=3)
+    ax.plot(xs,spline(xs))
+    #ax.plot(xs,splineHard(xs))
+    ax.plot(xs,spline2(xs))
+    ax.set_xlabel("Delta t [us]")
+    ax.set_ylabel("Smoothed Fitted $log(Q_1/Q_2)$")
+    fig.savefig("ChargeRatioVDeltaT_spline.png")
+      
+    fig, ax = mpl.subplots()
+    ax.plot(xs,-1./spline(xs,1)/1000.)
+    #ax.plot(xs,-1./splineHard(xs,1)/1000.)
+    ax.plot(xs,-1./spline2(xs,1)/1000.)
+    ax.set_xlabel("Delta t [us]")
+    ax.set_ylabel("Electron lifetime [ms]")
+    ax.set_ylim(0,6)
+    fig.savefig("ChargeRatioVDeltaT_splineDeriv.png")
