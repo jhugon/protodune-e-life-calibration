@@ -219,10 +219,15 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
     k = 0
     for i in range(0,nPoints,10):
       for j in range(i,nPoints):
-        chargeRatioVdtHist.Fill(ts[j]-ts[i],log(qMeass[j]/qMeass[i]))
-        qMeassRatios[k] = qMeass[j]/qMeass[i]
-        qMeassDeltaTimes[k] = ts[j]-ts[i]
-        k += 1
+        if qMeass[j] > 0 and qMeass[i] > 0:
+          try:
+            chargeRatioVdtHist.Fill(ts[j]-ts[i],log(qMeass[j]/qMeass[i]))
+          except ValueError as e:
+            print ts[j], ts[i], qMeass[j], qMeass[i]
+            raise e
+          qMeassRatios[k] = qMeass[j]/qMeass[i]
+          qMeassDeltaTimes[k] = ts[j]-ts[i]
+          k += 1
     qMeassRatios = qMeassRatios[:k]
     qMeassDeltaTimes = qMeassDeltaTimes[:k]
     qMeassRatiosLog = numpy.log(qMeassRatios)
@@ -280,7 +285,7 @@ if __name__ == "__main__":
   qMPV = 300.
   lifetimeTrue = 3000. # us
   doLogFit = False
-  doGaus = True
+  doGaus = False
 
   #landauPoints = numpy.array([RAND.Landau(qMPV,qMPV*0.22) for i in range(100000)])
   #fig, ax = mpl.subplots()
@@ -321,9 +326,10 @@ if __name__ == "__main__":
   lifesLogNumpy = []
   pullsNumpy = []
   pullsLogNumpy = []
-  for iCluster in range(10000):
-  #for iCluster in range(100):
-    doPlots = (iCluster < 5)
+  #for iCluster in range(1000):
+  for iCluster in range(1000):
+    #doPlots = (iCluster < 5)
+    doPlots = False
     life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(qMPV,lifetimeTrue,nBins,pointsPerBin,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,doGaus=doGaus,chargeRatioVdtHist=chargeRatioVdt)
     lifes.append(life/1000.)
     lifesNumpy.append(lifeNumpy/1000.)
