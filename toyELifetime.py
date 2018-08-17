@@ -327,7 +327,7 @@ if __name__ == "__main__":
   pullsNumpy = []
   pullsLogNumpy = []
   #for iCluster in range(1000):
-  for iCluster in range(1000):
+  for iCluster in range(100):
     #doPlots = (iCluster < 5)
     doPlots = False
     life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(qMPV,lifetimeTrue,nBins,pointsPerBin,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,doGaus=doGaus,chargeRatioVdtHist=chargeRatioVdt)
@@ -339,8 +339,8 @@ if __name__ == "__main__":
 
   fig, ax = mpl.subplots()
   ax.hist(lifes,bins=30,range=[0,6],histtype='step')
-  ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
-  ax.hist(lifesLogNumpy,bins=30,range=[0,6],histtype='step')
+  #ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
+  #ax.hist(lifesLogNumpy,bins=30,range=[0,6],histtype='step')
   ax.axvline(lifetimeTrue/1000.,c='m')
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Toy Clusters / Bin")
@@ -353,13 +353,13 @@ if __name__ == "__main__":
   fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
   fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
 
-  fig, ax = mpl.subplots()
-  ax.hist(pullsNumpy,bins=30,range=[-10,10],histtype='step')
-  ax.hist(pullsLogNumpy,bins=30,range=[-10,10],histtype='step')
-  ax.set_xlabel("Electron Lifetime Pull")
-  ax.set_ylabel("Toy Clusters / Bin")
-  fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
-  fig.savefig("Pulls.png")
+  #fig, ax = mpl.subplots()
+  #ax.hist(pullsNumpy,bins=30,range=[-10,10],histtype='step')
+  #ax.hist(pullsLogNumpy,bins=30,range=[-10,10],histtype='step')
+  #ax.set_xlabel("Electron Lifetime Pull")
+  #ax.set_ylabel("Toy Clusters / Bin")
+  #fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
+  #fig.savefig("Pulls.png")
 
   if chargeRatioVdt:
     #chargeRatioVdt.RebinX(20)
