@@ -44,9 +44,10 @@ def generateCluster(qMPV,lifetimeTrue,nHits,hitsPerus,doGaus=False,doLinear=Fals
 
   return ts, qMeass
 
-def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None,qMPV=None,lifetimeTrue=None):
+def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None,assumeLinear=False,qMPV=None,lifetimeTrue=None):
 
   assert(len(ts)==len(qMeass))
+  assert(!(doLogFit and assumeLinear))
   nHits = len(ts)
   nBins = int(numpy.ceil((ts[-1]-ts[0]) / usPerBin))
 
@@ -133,7 +134,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
     if(err[ihist] == 0):
       continue;
     xx = (tck[ihist] - tck[0]);
-    if doLogFit:
+    if doLogFit or assumeLinear:
       yy = ave[ihist]
     else:
       yy = numpy.log(ave[ihist]);
@@ -141,6 +142,8 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
     logPlot_ys.append(yy)
     # error on log(x) = dx / x
     arg = ave[ihist] / err[ihist];
+    if assumeLinear:
+      arg = 1. / err[ihist];
     wght = arg * arg;
     Sum += wght;
     sumx += wght * xx;
@@ -176,6 +179,8 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
        continue;
     xx = (tck[ihist] - tck[0]);
     yy = numpy.exp(A - xx * lifeInv);
+    if assumeLinear:
+        yy = A - xx * lifeInv
     arg = (yy - ave[ihist]) / err[ihist];
     chi2 += arg * arg;
     #print "chk ", ihist, " xx ", xx, " yy ", yy, " ave ", ave[ihist], " arg ", arg, "\n";
@@ -188,8 +193,14 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
       ax.set_ylim(0,qMPV*8)
     ax.scatter(ts,qMeass,2.,c='k',lw=0)
     if qMPV and lifetimeTrue:
-      ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
-    ax.plot(ts,numpy.exp(ts*B+A),'-g')
+      if assumeLinear:
+        ax.plot(ts,qMPV-ts/lifetimeTrue,'-m')
+      else:
+        ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
+    if assumeLinear:
+      ax.plot(ts,ts*B+A,'-g')
+    else:
+      ax.plot(ts,numpy.exp(ts*B+A),'-g')
     #ax.plot(ts,numpy.exp(ts*coefs[0]+coefs[1]),'-c')
     #ax.plot(tck,ave,'og')
     ax.errorbar(numpy.arange(nBins)*usPerBin+0.5*usPerBin,ave,xerr=0.5*usPerBin,yerr=err,fmt="ob")
@@ -218,6 +229,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
 
 def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,qMPV=None,lifetimeTrue=None):
   assert(len(ts)==len(qMeass))
+  assert(!(doLogFit and assumeLinear))
   nHits = len(ts)
   nBins = int(numpy.ceil((ts[-1]-ts[0]) / usPerBin))
 
@@ -228,23 +240,35 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,qM
   redoavelog = None
   redoaveerrlog = None
   qMeassLog = None
+  ltMaxHits = None
+  nontruncave = numpy.zeros(nBins)
   if doLogFit:
     qMeassLog = numpy.log(qMeass)
+  else:
+    ltMaxHits = qMeass < 1500.
   for ihist in range(nBins):
     #ts, qMeass
     inBin = numpy.logical_and(ts > (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
-    nGoodPoints = len(qMeass[inBin])
-    redot[ihist] = numpy.mean(ts[inBin])
+    goodHits = numpy.logical_and(inBin,ltMaxHits)
+    
+    nGoodPoints = len(qMeass[goodHits])
+    redot[ihist] = numpy.mean(ts[goodHits])
     if doLogFit:
-      redoavelog[ihist] = numpy.mean(qMeassLog[inBin])
-      redoaveerrlog[ihist] = numpy.std(qMeassLog[inBin])/numpy.sqrt(nGoodPoints)
+      redoavelog[ihist] = numpy.mean(qMeassLog[goodHits])
+      redoaveerrlog[ihist] = numpy.std(qMeassLog[goodHits])/numpy.sqrt(nGoodPoints)
     else:
-      redoave[ihist] = numpy.mean(qMeass[inBin])
-      redoavevariance[ihist] = numpy.var(qMeass[inBin])/nGoodPoints
+      nontruncave[ihist] = numpy.mean(qMeass[goodHits])
+      goodHits2 = numpy.logical_and(qMeass[goodHits] > nontruncave[ihist]*0.5,qMeass[goodHits] < nontruncave[ihist]*1.3)
+      redoave[ihist] = numpy.mean(qMeass[goodHits][goodHits2])
+      redoavevariance[ihist] = numpy.var(qMeass[goodHits][goodHits2])/nGoodPoints
   if not doLogFit:
     redoavelog = numpy.log(redoave)
     redoaveerr = numpy.sqrt(redoavevariance)
     redoaveerrlog = numpy.abs(redoaveerr/redoave)
+  if assumeLinear
+    redoavelog = redoave
+    redoaveerr = numpy.sqrt(redoavevariance)
+    redoaveerrlog = redoaveerr
   
   coefs, cov = numpy.polyfit(redot,redoavelog,1,w=1./redoaveerrlog,cov=True)
   numpyLife = -1/coefs[0]
@@ -256,16 +280,22 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,qM
       ax.set_ylim(0,qMPV*8)
     ax.scatter(ts,qMeass,2.,c='k',lw=0)
     if qMPV and lifetimeTrue:
-      ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
-    ax.plot(ts,numpy.exp(ts*coefs[0]+coefs[1]),'-g')
+      if assumeLinear:
+        ax.plot(ts,qMPV*(1-ts/lifetimeTrue),'-m')
+      else:
+        ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
+    if assumeLinear:
+      ax.plot(ts,numpy.exp(ts*coefs[0]+coefs[1]),'-g')
+    else:
+      ax.plot(ts,ts*coefs[0]+coefs[1],'-g')
     #ax.plot(tck,ave,'og')
+    ax.plot(numpy.arange(nBins)*usPerBin+0.5*usPerBin,nontruncave,"or")
     ax.errorbar(numpy.arange(nBins)*usPerBin+0.5*usPerBin,redoave,xerr=0.5*usPerBin,yerr=redoaveerr,fmt="ob")
     ax.set_xlabel("Drift Time [us]")
     ax.set_ylabel("Charge")
     ax.set_ylim(0,1000)
     fig.savefig("NumpyLandau{}.png".format(suffix))
     fig.savefig("NumpyLandau{}.pdf".format(suffix))
-    
     
     fig, ax = mpl.subplots()
     ax.scatter(ts-redot[0],numpy.log(qMeass),2.,c='k',lw=0)
@@ -429,6 +459,7 @@ if __name__ == "__main__":
   lifetimeTrue = 3000. # us
   doLogFit = False
   doGaus = False
+  doLinear = False
 
   crm = ChargeRatioMethod()
   
@@ -438,12 +469,12 @@ if __name__ == "__main__":
   pullsNumpy = []
   pullsLogNumpy = []
   #for iCluster in range(1000):
-  for iCluster in range(100):
+  for iCluster in range(1000):
     doPlots = (iCluster < 5)
     #doPlots = False
-    ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus)
-    life = bruceMethod(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
+    life = bruceMethod(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     #crm.processCluster(ts,qMeass)
     lifes.append(life/1000.)
     lifesNumpy.append(lifeNumpy/1000.)
@@ -451,8 +482,7 @@ if __name__ == "__main__":
 
   fig, ax = mpl.subplots()
   ax.hist(lifes,bins=30,range=[0,6],histtype='step')
-  #ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
-  #ax.hist(lifesLogNumpy,bins=30,range=[0,6],histtype='step')
+  ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
   ax.axvline(lifetimeTrue/1000.,c='m')
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Toy Clusters / Bin")
