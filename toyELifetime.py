@@ -44,7 +44,7 @@ def generateCluster(qMPV,lifetimeTrue,nHits,hitsPerus,doGaus=False,doLinear=Fals
 
   return ts, qMeass
 
-def toyCluster(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None):
+def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None):
 
   qMPV = None
   lifetimeTrue = None
@@ -186,81 +186,9 @@ def toyCluster(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,cha
     logFun_ys.append(A-xx*lifeInv)
   chi2ndof = chi2 / ndof;
 
-  ### Redo numpy
-  numpyLife = 0.
-  numpyLogLife = 0.
-  numpyLifeVar = 0.
-  numpyLogLifeVar = 0.
-
-  if False:
-    redoave = numpy.zeros(nBins)
-    redoavevariance = numpy.zeros(nBins)
-    redoaveerr = numpy.zeros(nBins)
-    redologave = numpy.zeros(nBins)
-    redologaveerr = numpy.zeros(nBins)
-    redot = numpy.zeros(nBins)
-    qMeassLog = numpy.log(qMeass)
-    for ihist in range(nBins):
-      #ts, qMeass
-      inBin = numpy.logical_and(ts > (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
-      nGoodPoints = len(qMeass[inBin])
-      redoave[ihist] = numpy.mean(qMeass[inBin])
-      redoavevariance[ihist] = numpy.var(qMeass[inBin])/nGoodPoints
-      redot[ihist] = numpy.mean(ts[inBin])
-      redologave[ihist] = numpy.mean(qMeassLog[inBin])
-      redologaveerr[ihist] = numpy.std(qMeassLog[inBin])/numpy.sqrt(nGoodPoints)
-    redoaveerr = numpy.sqrt(redoavevariance)
-    redoavelog = numpy.log(redoave)
-    redoaveerrlog = numpy.abs(redoaveerr/redoave)
-    
-    coefs, cov = numpy.polyfit(redot,redoavelog,1,w=1./redoaveerrlog,cov=True)
-    coefsLogFirst, covLogFirst = numpy.polyfit(redot,redologave,1,w=1./redologaveerr,cov=True)
-    numpyLife = -1/coefs[0]
-    numpyLogLife = -1/coefsLogFirst[0]
-    numpyLifeVar = numpy.abs(cov[0][0]/coefs[0]**4)
-    numpyLogLifeVar = numpy.abs(covLogFirst[0][0]/coefsLogFirst[0]**4)
-    #print "Bruce: {:.2f}, Numpy: {:.2f} Numpy Log First: {:.2f}".format(1./lifeInv/1000.,-1/coefs[0]/1000.,-1/coefsLogFirst[0]/1000.)
-    #print "Pull: Numpy: {:.2f} Numpy Log First: {:.2f}".format((numpyLife-lifetimeTrue)/numpy.sqrt(numpyLifeVar),(numpyLogLife-lifetimeTrue)/numpy.sqrt(numpyLogLifeVar))
-
-
-  if chargeRatioVdtHist:
-    qMeassRatios = numpy.zeros(nHits**2)
-    qMeassDeltaTimes = numpy.zeros(nHits**2)
-    k = 0
-    for i in range(0,nHits,10):
-      for j in range(i,nHits):
-        if qMeass[j] > 0 and qMeass[i] > 0:
-          try:
-            chargeRatioVdtHist.Fill(ts[j]-ts[i],log(qMeass[j]/qMeass[i]))
-          except ValueError as e:
-            print ts[j], ts[i], qMeass[j], qMeass[i]
-            raise e
-          qMeassRatios[k] = qMeass[j]/qMeass[i]
-          qMeassDeltaTimes[k] = ts[j]-ts[i]
-          k += 1
-    qMeassRatios = qMeassRatios[:k]
-    qMeassDeltaTimes = qMeassDeltaTimes[:k]
-    qMeassRatiosLog = numpy.log(qMeassRatios)
-
-    if False and doPlots:
-      fig, ax = mpl.subplots()
-      ax.scatter(qMeassDeltaTimes,qMeassRatios,2.,c='k',lw=0)
-      ax.set_xlabel("$\Delta t$ [us]")
-      ax.set_ylabel("$Q_1/Q_2$")
-      ax.set_ylim(0,3.5)
-      fig.savefig("Ratios{}.png".format(suffix))
-      fig.savefig("Ratios{}.pdf".format(suffix))
-
-      fig, ax = mpl.subplots()
-      ax.scatter(qMeassDeltaTimes,qMeassRatiosLog,2.,c='k',lw=0)
-      ax.set_xlabel("$\Delta t$ [us]")
-      ax.set_ylabel("$\ln(Q_1/Q_2$)")
-      ax.set_ylim(-1.5,1.5)
-      fig.savefig("RatiosLog{}.png".format(suffix))
-      fig.savefig("RatiosLog{}.pdf".format(suffix))
-
   if doPlots:
-    ax.set_ylim(0,qMPV*8)
+    if qMPV:
+      ax.set_ylim(0,qMPV*8)
     ax.scatter(ts,qMeass,2.,c='k',lw=0)
     if qMPV and lifetimeTrue:
       ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
@@ -288,7 +216,83 @@ def toyCluster(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,cha
     fig.savefig("LandauLog{}.png".format(suffix))
     fig.savefig("LandauLog{}.pdf".format(suffix))
 
-  return 1./lifeInv, numpyLife, numpyLogLife, numpyLifeVar, numpyLogLifeVar
+  return 1./lifeInv
+
+
+def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False):
+  assert(len(ts)==len(qMeass))
+  nHits = len(ts)
+  nBins = int(numpy.ceil((ts[-1]-ts[0]) / usPerBin))
+
+  redoave = numpy.zeros(nBins)
+  redoavevariance = numpy.zeros(nBins)
+  redoaveerr = numpy.zeros(nBins)
+  redologave = numpy.zeros(nBins)
+  redologaveerr = numpy.zeros(nBins)
+  redot = numpy.zeros(nBins)
+  qMeassLog = numpy.log(qMeass)
+  for ihist in range(nBins):
+    #ts, qMeass
+    inBin = numpy.logical_and(ts > (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
+    nGoodPoints = len(qMeass[inBin])
+    redoave[ihist] = numpy.mean(qMeass[inBin])
+    redoavevariance[ihist] = numpy.var(qMeass[inBin])/nGoodPoints
+    redot[ihist] = numpy.mean(ts[inBin])
+    redologave[ihist] = numpy.mean(qMeassLog[inBin])
+    redologaveerr[ihist] = numpy.std(qMeassLog[inBin])/numpy.sqrt(nGoodPoints)
+  redoaveerr = numpy.sqrt(redoavevariance)
+  redoavelog = numpy.log(redoave)
+  redoaveerrlog = numpy.abs(redoaveerr/redoave)
+  
+  coefs, cov = numpy.polyfit(redot,redoavelog,1,w=1./redoaveerrlog,cov=True)
+  coefsLogFirst, covLogFirst = numpy.polyfit(redot,redologave,1,w=1./redologaveerr,cov=True)
+  numpyLife = -1/coefs[0]
+  numpyLogLife = -1/coefsLogFirst[0]
+  numpyLifeVar = numpy.abs(cov[0][0]/coefs[0]**4)
+  numpyLogLifeVar = numpy.abs(covLogFirst[0][0]/coefsLogFirst[0]**4)
+  #print "Bruce: {:.2f}, Numpy: {:.2f} Numpy Log First: {:.2f}".format(1./lifeInv/1000.,-1/coefs[0]/1000.,-1/coefsLogFirst[0]/1000.)
+  #print "Pull: Numpy: {:.2f} Numpy Log First: {:.2f}".format((numpyLife-lifetimeTrue)/numpy.sqrt(numpyLifeVar),(numpyLogLife-lifetimeTrue)/numpy.sqrt(numpyLogLifeVar))
+
+  return numpyLife, numpyLogLife, numpyLifeVar, numpyLogLifeVar
+
+def chargeRatioMethod(ts,qMeass,chargeRatioVdtHist,suffix="",doPlots=False):
+  assert(len(ts)==len(qMeass))
+  nHits = len(ts)
+
+  qMeassRatios = numpy.zeros(nHits**2)
+  qMeassDeltaTimes = numpy.zeros(nHits**2)
+  k = 0
+  for i in range(0,nHits,10):
+    for j in range(i,nHits):
+      if qMeass[j] > 0 and qMeass[i] > 0:
+        try:
+          chargeRatioVdtHist.Fill(ts[j]-ts[i],log(qMeass[j]/qMeass[i]))
+        except ValueError as e:
+          print ts[j], ts[i], qMeass[j], qMeass[i]
+          raise e
+        qMeassRatios[k] = qMeass[j]/qMeass[i]
+        qMeassDeltaTimes[k] = ts[j]-ts[i]
+        k += 1
+  qMeassRatios = qMeassRatios[:k]
+  qMeassDeltaTimes = qMeassDeltaTimes[:k]
+  qMeassRatiosLog = numpy.log(qMeassRatios)
+
+  if doPlots:
+    fig, ax = mpl.subplots()
+    ax.scatter(qMeassDeltaTimes,qMeassRatios,2.,c='k',lw=0)
+    ax.set_xlabel("$\Delta t$ [us]")
+    ax.set_ylabel("$Q_1/Q_2$")
+    ax.set_ylim(0,3.5)
+    fig.savefig("Ratios{}.png".format(suffix))
+    fig.savefig("Ratios{}.pdf".format(suffix))
+
+    fig, ax = mpl.subplots()
+    ax.scatter(qMeassDeltaTimes,qMeassRatiosLog,2.,c='k',lw=0)
+    ax.set_xlabel("$\Delta t$ [us]")
+    ax.set_ylabel("$\ln(Q_1/Q_2$)")
+    ax.set_ylim(-1.5,1.5)
+    fig.savefig("RatiosLog{}.png".format(suffix))
+    fig.savefig("RatiosLog{}.pdf".format(suffix))
 
 if __name__ == "__main__":
   nBins = 10
@@ -340,11 +344,12 @@ if __name__ == "__main__":
   pullsLogNumpy = []
   #for iCluster in range(1000):
   for iCluster in range(100):
-    #doPlots = (iCluster < 5)
+    doPlots = (iCluster < 5)
     doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus)
-    #life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(qMPV,lifetimeTrue,nBins,pointsPerBin,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,doGaus=doGaus,chargeRatioVdtHist=chargeRatioVdt)
-    life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,chargeRatioVdtHist=chargeRatioVdt)
+    life = bruceMethod(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots)
+    lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots)
+    chargeRatioMethod(ts,qMeass,chargeRatioVdt,suffix="_{}".format(iCluster),doPlots=doPlots)
     lifes.append(life/1000.)
     lifesNumpy.append(lifeNumpy/1000.)
     lifesLogNumpy.append(lifeLogNumpy/1000.)
