@@ -9,22 +9,50 @@ from matplotlib import pylab as mpl
 root.gROOT.SetBatch(True)
 RAND = root.TRandom3(7)
 
-def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,doGaus=False,chargeRatioVdtHist=None):
+def generateCluster(qMPV,lifetimeTrue,nHits,hitsPerus,doGaus=False,doLinear=False):
   """
   qMPV is the true charge deposited
   lifetimeTrue is the true lifetime in us
-  trackSlope is points / us
+  nHits is the number of hits to generate
+  hitsPerus is the number of hits per us
   """
   landauWidth = qMPV*0.22
-  #nBins = int(nPoints // (trackSlope*usPerBin))
-  nBins = int(nBins)
-  nPoints = int(pointsPerBin * nBins)
-  trackSlope = pointsPerBin / usPerBin
 
-  ts = numpy.zeros(nPoints) # in us
-  qTrues = numpy.zeros(nPoints) # in ADC
-  qMeass = numpy.zeros(nPoints) # in ADC
+  ts = numpy.zeros(nHits) # in us
+  qTrues = numpy.zeros(nHits) # in ADC
+  qMeass = numpy.zeros(nHits) # in ADC
   
+  for iHit in range(nHits):
+    # correct for dumb root MPV!!!!
+    param2 = landauWidth
+    param1 = qMPV*0.22278+param2
+    qTrue = None
+    if doGaus:
+      qTrue = RAND.Gaus(qMPV,landauWidth)
+    else:
+      qTrue = RAND.Landau(qMPV,landauWidth)
+      #qTrue = RAND.Landau(param1,param2)
+    t = iHit / hitsPerus
+    if doLinear:
+      qMeas = qTrue-t*qMPV/lifetimeTrue
+    else:
+      qMeas = qTrue*numpy.exp(-t/lifetimeTrue)
+  
+    ts[iHit] = t
+    qTrues[iHit] = qTrue
+    qMeass[iHit] = qMeas
+
+  return ts, qMeass
+
+def toyCluster(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None):
+
+  qMPV = None
+  lifetimeTrue = None
+
+  assert(len(ts)==len(qMeass))
+  nHits = len(ts)
+  nBins = int(numpy.ceil((ts[-1]-ts[0]) / usPerBin))
+
   tck = numpy.zeros(nBins)
   ave = numpy.zeros(nBins)
   err = numpy.zeros(nBins)
@@ -35,23 +63,7 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
   if doPlots:
     fig, ax = mpl.subplots()
   
-  for iPoint in range(nPoints):
-      # correct for dumb root MPV!!!!
-      param2 = landauWidth
-      param1 = qMPV*0.22278+param2
-      qTrue = None
-      if doGaus:
-        qTrue = RAND.Gaus(qMPV,landauWidth)
-      else:
-        qTrue = RAND.Landau(qMPV,landauWidth)
-        #qTrue = RAND.Landau(param1,param2)
-      t = iPoint / trackSlope
-      qMeas = qTrue*numpy.exp(-t/lifetimeTrue)
-  
-      ts[iPoint] = t
-      qTrues[iPoint] = qTrue
-      qMeass[iPoint] = qMeas
-  
+  for t, qMeas in zip(ts,qMeass):
       ## Now do the fit stuff
       iBin = int(t // usPerBin)
       if doLogFit:
@@ -83,9 +95,7 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
     cnt = numpy.zeros(nBins)
     
     # now truncate
-    for iPoint in range(nPoints):
-        t = ts[iPoint]
-        qMeas = qMeass[iPoint]
+    for t, qMeas in zip(ts,qMeass):
         iBin = int(t // usPerBin)
         if iBin < nBins and qMeas > minChg[iBin] and qMeas < maxChg[iBin]:
           tck[iBin] += t
@@ -214,11 +224,11 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
 
 
   if chargeRatioVdtHist:
-    qMeassRatios = numpy.zeros(nPoints**2)
-    qMeassDeltaTimes = numpy.zeros(nPoints**2)
+    qMeassRatios = numpy.zeros(nHits**2)
+    qMeassDeltaTimes = numpy.zeros(nHits**2)
     k = 0
-    for i in range(0,nPoints,10):
-      for j in range(i,nPoints):
+    for i in range(0,nHits,10):
+      for j in range(i,nHits):
         if qMeass[j] > 0 and qMeass[i] > 0:
           try:
             chargeRatioVdtHist.Fill(ts[j]-ts[i],log(qMeass[j]/qMeass[i]))
@@ -252,7 +262,8 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
   if doPlots:
     ax.set_ylim(0,qMPV*8)
     ax.scatter(ts,qMeass,2.,c='k',lw=0)
-    ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
+    if qMPV and lifetimeTrue:
+      ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
     ax.plot(ts,numpy.exp(ts*B+A),'-g')
     #ax.plot(ts,numpy.exp(ts*coefs[0]+coefs[1]),'-c')
     #ax.plot(tck,ave,'og')
@@ -269,7 +280,8 @@ def toyCluster(qMPV,lifetimeTrue,nBins=10,pointsPerBin=20,usPerBin=100.,suffix="
     ax.plot(logPlot_xs,logPlot_ys,"bo")
     ax.plot(logFun_xs,logFun_ys,"g-")
     #ax.plot(ts,ts*coefs[0]+coefs[1],'-c')
-    ax.plot(ts,numpy.log(qMPV)-ts/lifetimeTrue,"m-")
+    if qMPV and lifetimeTrue:
+      ax.plot(ts,numpy.log(qMPV)-ts/lifetimeTrue,"m-")
     ax.set_xlabel("Drift Time [us]")
     ax.set_ylabel("log(Charge)")
     ax.set_ylim(4.5,7)
@@ -330,7 +342,9 @@ if __name__ == "__main__":
   for iCluster in range(100):
     #doPlots = (iCluster < 5)
     doPlots = False
-    life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(qMPV,lifetimeTrue,nBins,pointsPerBin,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,doGaus=doGaus,chargeRatioVdtHist=chargeRatioVdt)
+    ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus)
+    #life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(qMPV,lifetimeTrue,nBins,pointsPerBin,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,doGaus=doGaus,chargeRatioVdtHist=chargeRatioVdt)
+    life, lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = toyCluster(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,chargeRatioVdtHist=chargeRatioVdt)
     lifes.append(life/1000.)
     lifesNumpy.append(lifeNumpy/1000.)
     lifesLogNumpy.append(lifeLogNumpy/1000.)
