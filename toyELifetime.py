@@ -255,133 +255,27 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False):
 
   return numpyLife, numpyLogLife, numpyLifeVar, numpyLogLifeVar
 
-def chargeRatioMethod(ts,qMeass,chargeRatioVdtHist,suffix="",doPlots=False):
-  assert(len(ts)==len(qMeass))
-  nHits = len(ts)
+class ChargeRatioMethod(object):
 
-  qMeassRatios = numpy.zeros(nHits**2)
-  qMeassDeltaTimes = numpy.zeros(nHits**2)
-  k = 0
-  for i in range(0,nHits,10):
-    for j in range(i,nHits):
-      if qMeass[j] > 0 and qMeass[i] > 0:
-        try:
-          chargeRatioVdtHist.Fill(ts[j]-ts[i],log(qMeass[j]/qMeass[i]))
-        except ValueError as e:
-          print ts[j], ts[i], qMeass[j], qMeass[i]
-          raise e
-        qMeassRatios[k] = qMeass[j]/qMeass[i]
-        qMeassDeltaTimes[k] = ts[j]-ts[i]
-        k += 1
-  qMeassRatios = qMeassRatios[:k]
-  qMeassDeltaTimes = qMeassDeltaTimes[:k]
-  qMeassRatiosLog = numpy.log(qMeassRatios)
+  def __init__(self):
+    self.chargeRatioVdt = root.TH2F("chargeRatioVdt","",100,0,1000,100,-1.5,1.5)
+    setHistTitles(self.chargeRatioVdt,"#Delta t [us]","log(Q_{1}/Q_{2})")
 
-  if doPlots:
-    fig, ax = mpl.subplots()
-    ax.scatter(qMeassDeltaTimes,qMeassRatios,2.,c='k',lw=0)
-    ax.set_xlabel("$\Delta t$ [us]")
-    ax.set_ylabel("$Q_1/Q_2$")
-    ax.set_ylim(0,3.5)
-    fig.savefig("Ratios{}.png".format(suffix))
-    fig.savefig("Ratios{}.pdf".format(suffix))
-
-    fig, ax = mpl.subplots()
-    ax.scatter(qMeassDeltaTimes,qMeassRatiosLog,2.,c='k',lw=0)
-    ax.set_xlabel("$\Delta t$ [us]")
-    ax.set_ylabel("$\ln(Q_1/Q_2$)")
-    ax.set_ylim(-1.5,1.5)
-    fig.savefig("RatiosLog{}.png".format(suffix))
-    fig.savefig("RatiosLog{}.pdf".format(suffix))
-
-if __name__ == "__main__":
-  nBins = 10
-  pointsPerBin = 400./nBins
-  usPerBin = 100.
-  qMPV = 300.
-  lifetimeTrue = 3000. # us
-  doLogFit = False
-  doGaus = False
-
-  #landauPoints = numpy.array([RAND.Landau(qMPV,qMPV*0.22) for i in range(100000)])
-  #fig, ax = mpl.subplots()
-  #ax.hist(landauPoints,bins=100,range=[0,2000],histtype='step')
-  #ax.axvline(numpy.mean(landauPoints))
-  #ax.set_xlabel("Landau Distributed Points")
-  #ax.set_ylabel("Points / Bin")
-  #fig.savefig("ToyLandau.png")
-  #fig.savefig("ToyLandau.pdf")
-
-  #logLandauPoints = numpy.log(landauPoints)
-  #logmean = numpy.mean(logLandauPoints)
-  #logrms = numpy.std(logLandauPoints)
-  #truncatedPoints = logLandauPoints[logLandauPoints < logmean+1.0*logrms]
-  #logtruncmean = numpy.mean(truncatedPoints)
-  #logtruncrms = numpy.std(truncatedPoints)
-  #logtruncmeanerror = logtruncrms*len(truncatedPoints)**(-0.5)
-
-  #fig, ax = mpl.subplots()
-  #ax.axvspan(logmean-logrms,logmean+logrms,fc="r",alpha=0.3)
-  #ax.axvline(logmean,c='r')
-  ##ax.axvspan(logtruncmean-logtruncrms,logtruncmean+logtruncrms,fc="b",alpha=0.3)
-  #ax.axvspan(logtruncmean-logtruncmeanerror,logtruncmean+logtruncmeanerror,fc="b",alpha=0.3)
-  #ax.axvline(logtruncmean,c='b')
-  #ax.hist(logLandauPoints,bins=100,range=[4,12],histtype='step',color='k')
-  #ax.set_xlabel("Log-Landau Distributed Points")
-  #ax.set_ylabel("Points / Bin")
-  #fig.savefig("ToyLogLandau.png")
-  #fig.savefig("ToyLogLandau.pdf")
+  def processCluster(self,ts,qMeass):
+    assert(len(ts)==len(qMeass))
+    nHits = len(ts)
   
-  #chargeRatioVdt = root.TH2F("chargeRatioVdt","",500,0,2000,500,-1.5,1.5)
-  chargeRatioVdt = root.TH2F("chargeRatioVdt","",100,0,1000,100,-1.5,1.5)
-  setHistTitles(chargeRatioVdt,"#Delta t [us]","log(Q_{1}/Q_{2})")
-  #chargeRatioVdt = None
+    for i in range(0,nHits,10):
+      for j in range(i,nHits):
+        if qMeass[j] > 0 and qMeass[i] > 0:
+          try:
+            self.chargeRatioVdt.Fill(ts[j]-ts[i],log(qMeass[j]/qMeass[i]))
+          except ValueError as e:
+            print ts[j], ts[i], qMeass[j], qMeass[i]
+            raise e
 
-  lifes = []
-  lifesNumpy = []
-  lifesLogNumpy = []
-  pullsNumpy = []
-  pullsLogNumpy = []
-  #for iCluster in range(1000):
-  for iCluster in range(100):
-    doPlots = (iCluster < 5)
-    doPlots = False
-    ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus)
-    life = bruceMethod(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots)
-    lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots)
-    chargeRatioMethod(ts,qMeass,chargeRatioVdt,suffix="_{}".format(iCluster),doPlots=doPlots)
-    lifes.append(life/1000.)
-    lifesNumpy.append(lifeNumpy/1000.)
-    lifesLogNumpy.append(lifeLogNumpy/1000.)
-    pullsNumpy.append(lifeNumpy/numpy.sqrt(lifeNumpyVar))
-    pullsLogNumpy.append(lifeLogNumpy/numpy.sqrt(lifeLogNumpyVar))
-
-  fig, ax = mpl.subplots()
-  ax.hist(lifes,bins=30,range=[0,6],histtype='step')
-  #ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
-  #ax.hist(lifesLogNumpy,bins=30,range=[0,6],histtype='step')
-  ax.axvline(lifetimeTrue/1000.,c='m')
-  ax.set_xlabel("Electron Lifetime [ms]")
-  ax.set_ylabel("Toy Clusters / Bin")
-  distType = "Landau"
-  distTypeLabel = ""
-  if doGaus:
-    distType = "Gaus"
-    distTypeLabel = "Gaussian Charge "
-  fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
-  fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
-  fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
-
-  #fig, ax = mpl.subplots()
-  #ax.hist(pullsNumpy,bins=30,range=[-10,10],histtype='step')
-  #ax.hist(pullsLogNumpy,bins=30,range=[-10,10],histtype='step')
-  #ax.set_xlabel("Electron Lifetime Pull")
-  #ax.set_ylabel("Toy Clusters / Bin")
-  #fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
-  #fig.savefig("Pulls.png")
-
-  if chargeRatioVdt:
-    #chargeRatioVdt.RebinX(20)
+  def calculate(self):
+    chargeRatioVdt = self.chargeRatioVdt
     profileX = chargeRatioVdt.ProfileX()
     projectionX = chargeRatioVdt.ProjectionX()
     projectionY = chargeRatioVdt.ProjectionY()
@@ -473,26 +367,78 @@ if __name__ == "__main__":
         )
     canvas.SaveAs("ChargeRatioVDeltaT_gausFitFit.png")
 
-    import scipy.interpolate
-    spline = scipy.interpolate.UnivariateSpline(dtList,muList,w=1/muErrList)
-    splineHard = scipy.interpolate.UnivariateSpline(dtList,muList,w=1/muErrList,s=0)
-    spline2 = scipy.interpolate.UnivariateSpline(dtList,muList,w=1/muErrList,s=len(muErrList)/3.)
-    xs = numpy.linspace(dtList[0],dtList[-1],1000)
-    
-    fig, ax = mpl.subplots()
-    ax.errorbar(dtList,muList,muErrList,fmt='ko',ecolor='k',barsabove=True,markersize=3)
-    ax.plot(xs,spline(xs))
-    #ax.plot(xs,splineHard(xs))
-    ax.plot(xs,spline2(xs))
-    ax.set_xlabel("Delta t [us]")
-    ax.set_ylabel("Smoothed Fitted $log(Q_1/Q_2)$")
-    fig.savefig("ChargeRatioVDeltaT_spline.png")
+    try:
+      import scipy.interpolate
+    except ImportError:
+      print "Couldn't import scipy.interpolate"
+    else:
+      spline = scipy.interpolate.UnivariateSpline(dtList,muList,w=1/muErrList)
+      splineHard = scipy.interpolate.UnivariateSpline(dtList,muList,w=1/muErrList,s=0)
+      spline2 = scipy.interpolate.UnivariateSpline(dtList,muList,w=1/muErrList,s=len(muErrList)/3.)
+      xs = numpy.linspace(dtList[0],dtList[-1],1000)
       
-    fig, ax = mpl.subplots()
-    ax.plot(xs,-1./spline(xs,1)/1000.)
-    #ax.plot(xs,-1./splineHard(xs,1)/1000.)
-    ax.plot(xs,-1./spline2(xs,1)/1000.)
-    ax.set_xlabel("Delta t [us]")
-    ax.set_ylabel("Electron lifetime [ms]")
-    ax.set_ylim(0,6)
-    fig.savefig("ChargeRatioVDeltaT_splineDeriv.png")
+      fig, ax = mpl.subplots()
+      ax.errorbar(dtList,muList,muErrList,fmt='ko',ecolor='k',barsabove=True,markersize=3)
+      ax.plot(xs,spline(xs))
+      #ax.plot(xs,splineHard(xs))
+      ax.plot(xs,spline2(xs))
+      ax.set_xlabel("Delta t [us]")
+      ax.set_ylabel("Smoothed Fitted $log(Q_1/Q_2)$")
+      fig.savefig("ChargeRatioVDeltaT_spline.png")
+        
+      fig, ax = mpl.subplots()
+      ax.plot(xs,-1./spline(xs,1)/1000.)
+      #ax.plot(xs,-1./splineHard(xs,1)/1000.)
+      ax.plot(xs,-1./spline2(xs,1)/1000.)
+      ax.set_xlabel("Delta t [us]")
+      ax.set_ylabel("Electron lifetime [ms]")
+      ax.set_ylim(0,6)
+      fig.savefig("ChargeRatioVDeltaT_splineDeriv.png")
+
+if __name__ == "__main__":
+  nBins = 10
+  pointsPerBin = 400./nBins
+  usPerBin = 100.
+  qMPV = 300.
+  lifetimeTrue = 3000. # us
+  doLogFit = False
+  doGaus = False
+
+  crm = ChargeRatioMethod()
+  
+  lifes = []
+  lifesNumpy = []
+  lifesLogNumpy = []
+  pullsNumpy = []
+  pullsLogNumpy = []
+  #for iCluster in range(1000):
+  for iCluster in range(100):
+    doPlots = (iCluster < 5)
+    doPlots = False
+    ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus)
+    life = bruceMethod(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots)
+    lifeNumpy, lifeLogNumpy, lifeNumpyVar, lifeLogNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots)
+    crm.processCluster(ts,qMeass)
+    lifes.append(life/1000.)
+    lifesNumpy.append(lifeNumpy/1000.)
+    lifesLogNumpy.append(lifeLogNumpy/1000.)
+    pullsNumpy.append(lifeNumpy/numpy.sqrt(lifeNumpyVar))
+    pullsLogNumpy.append(lifeLogNumpy/numpy.sqrt(lifeLogNumpyVar))
+
+  fig, ax = mpl.subplots()
+  ax.hist(lifes,bins=30,range=[0,6],histtype='step')
+  #ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
+  #ax.hist(lifesLogNumpy,bins=30,range=[0,6],histtype='step')
+  ax.axvline(lifetimeTrue/1000.,c='m')
+  ax.set_xlabel("Electron Lifetime [ms]")
+  ax.set_ylabel("Toy Clusters / Bin")
+  distType = "Landau"
+  distTypeLabel = ""
+  if doGaus:
+    distType = "Gaus"
+    distTypeLabel = "Gaussian Charge "
+  fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
+  fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+
+  crm.calculate()
