@@ -47,7 +47,7 @@ def generateCluster(qMPV,lifetimeTrue,nHits,hitsPerus,doGaus=False,doLinear=Fals
 def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None,assumeLinear=False,qMPV=None,lifetimeTrue=None):
 
   assert(len(ts)==len(qMeass))
-  assert(!(doLogFit and assumeLinear))
+  assert(not (doLogFit and assumeLinear))
   nHits = len(ts)
   nBins = int(numpy.ceil((ts[-1]-ts[0]) / usPerBin))
 
@@ -167,6 +167,10 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
   
   lifeInv = -B;
   lifeInvErr = BErr / (B * B) ;
+  if assumeLinear:
+    lifeInv = -B/A
+    if qMPV:
+      lifeInv = -B/qMPV
   
   logFun_xs = []
   logFun_ys = []
@@ -194,7 +198,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
     ax.scatter(ts,qMeass,2.,c='k',lw=0)
     if qMPV and lifetimeTrue:
       if assumeLinear:
-        ax.plot(ts,qMPV-ts/lifetimeTrue,'-m')
+        ax.plot(ts,qMPV*(1-ts/lifetimeTrue),'-m')
       else:
         ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
     if assumeLinear:
@@ -227,9 +231,9 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
   return 1./lifeInv
 
 
-def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,qMPV=None,lifetimeTrue=None):
+def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,assumeLinear=False,qMPV=None,lifetimeTrue=None):
   assert(len(ts)==len(qMeass))
-  assert(!(doLogFit and assumeLinear))
+  assert( not (doLogFit and assumeLinear))
   nHits = len(ts)
   nBins = int(numpy.ceil((ts[-1]-ts[0]) / usPerBin))
 
@@ -265,7 +269,7 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,qM
     redoavelog = numpy.log(redoave)
     redoaveerr = numpy.sqrt(redoavevariance)
     redoaveerrlog = numpy.abs(redoaveerr/redoave)
-  if assumeLinear
+  if assumeLinear:
     redoavelog = redoave
     redoaveerr = numpy.sqrt(redoavevariance)
     redoaveerrlog = redoaveerr
@@ -273,6 +277,10 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,qM
   coefs, cov = numpy.polyfit(redot,redoavelog,1,w=1./redoaveerrlog,cov=True)
   numpyLife = -1/coefs[0]
   numpyLifeVar = numpy.abs(cov[0][0]/coefs[0]**4)
+  if assumeLinear:
+    numpyLife = -coefs[1]/coefs[0]
+    if qMPV:
+      numpyLife = -qMPV/coefs[0]
 
   if doPlots:
     fig, ax = mpl.subplots()
@@ -285,9 +293,9 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,qM
       else:
         ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
     if assumeLinear:
-      ax.plot(ts,numpy.exp(ts*coefs[0]+coefs[1]),'-g')
-    else:
       ax.plot(ts,ts*coefs[0]+coefs[1],'-g')
+    else:
+      ax.plot(ts,numpy.exp(ts*coefs[0]+coefs[1]),'-g')
     #ax.plot(tck,ave,'og')
     ax.plot(numpy.arange(nBins)*usPerBin+0.5*usPerBin,nontruncave,"or")
     ax.errorbar(numpy.arange(nBins)*usPerBin+0.5*usPerBin,redoave,xerr=0.5*usPerBin,yerr=redoaveerr,fmt="ob")
