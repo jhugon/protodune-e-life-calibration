@@ -46,7 +46,7 @@ def generateCluster(qMPV,lifetimeTrue,nHits,hitsPerus,doGaus=False,doLinear=Fals
 
 def rootExpFitPoints(xs,ys,yerrs,fitrange,suffix=None):
   assert(len(xs)==len(ys))
-  assert(len(xs)==len(yerrs))
+  assert((yerrs is None) or len(xs)==len(yerrs))
   assert(len(fitrange)==2)
   # exp([0]+[1]*x)
   name = uuid.uuid1().hex
@@ -57,7 +57,8 @@ def rootExpFitPoints(xs,ys,yerrs,fitrange,suffix=None):
   graph = root.TGraphErrors()
   for iPoint in range(len(xs)):
     graph.SetPoint(iPoint,xs[iPoint],ys[iPoint])
-    graph.SetPointError(iPoint,0.,yerrs[iPoint])
+    if yerrs:
+      graph.SetPointError(iPoint,0.,yerrs[iPoint])
   fitrslt = graph.Fit(f,"EX0SQ","",fitrange[0],fitrange[1])
   chi2ndf = -1.
   ndf = fitrslt.Ndf()
@@ -79,6 +80,18 @@ def rootExpFitPoints(xs,ys,yerrs,fitrange,suffix=None):
     del axisHist
   del graph
   return lifetime, lifetimeErr, constParam, constParamErr, chi2ndf
+
+def directFitExpHits(tss,qMeass,suffix="",doPlots=True):
+  ts = numpy.array(tss)
+  qs = numpy.array(qMeass)
+  goodHits = qs < 400.
+  ts = ts[goodHits]
+  qs = qs[goodHits]
+  suffix2=None
+  if doPlots:
+    suffix2="DirectFit"+suffix
+  life, lifeErr, constParam, constParamErr, chi2ndf = rootExpFitPoints(ts,qs,None,[ts[0],ts[-1]],suffix=suffix2)
+  return life
 
 def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None,assumeLinear=False,qMPV=None,lifetimeTrue=None,doRootExpFit=False):
 
@@ -534,6 +547,7 @@ if __name__ == "__main__":
   lifes = []
   lifesNumpy = []
   lifesLogNumpy = []
+  lifesDirect = []
   pullsNumpy = []
   pullsLogNumpy = []
   #for iCluster in range(1000):
@@ -543,14 +557,17 @@ if __name__ == "__main__":
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
     life = bruceMethod(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    lifeDirect = directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_{}".format(iCluster))
     #crm.processCluster(ts,qMeass)
     lifes.append(life/1000.)
     lifesNumpy.append(lifeNumpy/1000.)
     pullsNumpy.append(lifeNumpy/numpy.sqrt(lifeNumpyVar))
+    lifesDirect.append(lifeDirect/1000.)
 
   fig, ax = mpl.subplots()
   ax.hist(lifes,bins=30,range=[0,6],histtype='step')
   ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
+  ax.hist(lifesDirect,bins=30,range=[0,6],histtype='step')
   ax.axvline(lifetimeTrue/1000.,c='m')
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Toy Clusters / Bin")
