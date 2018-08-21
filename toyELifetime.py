@@ -107,12 +107,17 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
 
   fig = None
   ax = None
+  name = uuid.uuid1().hex
+  canvas = None
+  binHists = [Hist(50,0,1500) for i in range(nBins)]
   if doPlots:
     fig, ax = mpl.subplots()
+    canvas = root.TCanvas(name+"canvas")
   
   for t, qMeas in zip(ts,qMeass):
       ## Now do the fit stuff
       iBin = int(t // usPerBin)
+      binHists[iBin].Fill(qMeas)
       if doLogFit:
         if iBin < nBins and qMeas < 1500.:
           tck[iBin] += t
@@ -129,11 +134,30 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
   tck /= cnt
   ave /= cnt
   
-  if doPlots:
-    ax.plot(tck,ave,'or')
-  
   maxChg = ave * 1.3
   minChg = ave * 0.5
+
+  if doPlots:
+    ax.plot(tck,ave,'or')
+    gausfunc = root.TF1("gausfunc","gaus",0,1500)
+    for iBin in range(nBins):
+      fitrslt = binHists[iBin].Fit(gausfunc,"S","",0,ave[iBin]*1.5)
+      chi2ndf = fitrslt.Chi2()/fitrslt.Ndf()
+      gausmu = fitrslt.Parameter(1)
+      gausmuerr = fitrslt.ParError(1)
+      gaussigma = fitrslt.Parameter(2)
+      gaussigmaerr = fitrslt.ParError(2)
+      setHistTitles(binHists[iBin],"Charge","Hits")
+      binHists[iBin].Sumw2()
+      binHists[iBin].Draw()
+      gausfunc.Draw("same")
+      drawStandardCaptions(canvas,"Cluster {} Bin {}".format(suffix,iBin),
+                    captionright1="Truncated: {:4.0f}-{:4.0f}".format(minChg[iBin],maxChg[iBin]),
+                    captionright2="Ave: {:4.0f}".format(ave[iBin]),
+                    captionright3="T: {:4.0f} Cnt: {:4.0f}".format(tck[iBin],cnt[iBin])
+            )
+      canvas.SaveAs("BinHist_{}_bin{}.png".format(suffix,iBin))
+  
   
   if not doLogFit:
     tck = numpy.zeros(nBins)
