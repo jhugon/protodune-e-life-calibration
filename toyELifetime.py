@@ -44,7 +44,43 @@ def generateCluster(qMPV,lifetimeTrue,nHits,hitsPerus,doGaus=False,doLinear=Fals
 
   return ts, qMeass
 
-def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None,assumeLinear=False,qMPV=None,lifetimeTrue=None):
+def rootExpFitPoints(xs,ys,yerrs,fitrange,suffix=None):
+  assert(len(xs)==len(ys))
+  assert(len(xs)==len(yerrs))
+  assert(len(fitrange)==2)
+  # exp([0]+[1]*x)
+  name = uuid.uuid1().hex
+  canvas = None
+  if suffix:
+    canvas = root.TCanvas(name+"canvas")
+  f = root.TF1(name,"expo",fitrange[0],fitrange[1])
+  graph = root.TGraphErrors()
+  for iPoint in range(len(xs)):
+    graph.SetPoint(iPoint,xs[iPoint],ys[iPoint])
+    graph.SetPointError(iPoint,0.,yerrs[iPoint])
+  fitrslt = graph.Fit(f,"EX0SQ","",fitrange[0],fitrange[1])
+  chi2ndf = -1.
+  ndf = fitrslt.Ndf()
+  if ndf != 0:
+    chi2ndf = fitrslt.Chi2()/ndf
+  param = fitrslt.Parameter(1)
+  paramErr = fitrslt.ParError(1)
+  lifetime = -1./param
+  lifetimeErr = paramErr/param**2
+  constParam = fitrslt.Parameter(0)
+  constParamErr = fitrslt.Parameter(1)
+  #print "life: {} +/- {}".format(lifetime,lifetimeErr)
+
+  if suffix:
+    axisHist = drawGraphs(canvas,[graph],"Drift Time [us]","Charge",ylims=[0,1000])
+    f.Draw("same")
+    canvas.SaveAs("ExpFit{}.png".format(suffix))
+    del canvas
+    del axisHist
+  del graph
+  return lifetime, lifetimeErr, constParam, constParamErr, chi2ndf
+
+def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None,assumeLinear=False,qMPV=None,lifetimeTrue=None,doRootExpFit=False):
 
   assert(len(ts)==len(qMeass))
   assert(not (doLogFit and assumeLinear))
@@ -111,86 +147,97 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
   #for iBin in range(nBins):
   #    print iBin, tck[iBin],ave[iBin],err[iBin],cnt[iBin]
   
-  
-  # fit to find the 1/lifetime
-  Sum = 0.;
-  sumx = 0.;
-  sumy = 0.;
-  sumxy = 0.;
-  sumx2 = 0.;
-  sumy2 = 0.;
-  xx = 0.
-  yy = 0. 
-  wght = 0. 
-  arg = 0.
-  fitcnt = 0;
-  
+  A = None
+  B = None
+  lifeInv = None
   logPlot_xs = []
   logPlot_ys = []
-    
-  for ihist in range(nBins):
-    if(cnt[ihist] < 3):
-       continue;
-    if(err[ihist] == 0):
-      continue;
-    xx = (tck[ihist] - tck[0]);
-    if doLogFit or assumeLinear:
-      yy = ave[ihist]
-    else:
-      yy = numpy.log(ave[ihist]);
-    logPlot_xs.append(xx)
-    logPlot_ys.append(yy)
-    # error on log(x) = dx / x
-    arg = ave[ihist] / err[ihist];
-    if assumeLinear:
-      arg = 1. / err[ihist];
-    wght = arg * arg;
-    Sum += wght;
-    sumx += wght * xx;
-    sumy += wght * yy;
-    sumx2 += wght * xx * xx;
-    sumxy += wght * xx * yy;
-    sumy2 += wght * yy * yy;
-    ++fitcnt;
-  # calculate coefficients
-  delta = Sum * sumx2 - sumx * sumx;
-  #print "delta ",delta
-  A = (sumx2 * sumy - sumx * sumxy) / delta;
-  #print "A ", A
-  # slope = 1 / lifetime
-  B = (sumxy * Sum  - sumx * sumy) / delta;
-  # calculate the error
-  ndof = fitcnt - 2;
-  varnce = (sumy2 + A*A*Sum + B*B*sumx2 - 2 * (A*sumy + B*sumxy - A*B*sumx)) / ndof;
-  BErr = numpy.sqrt(varnce * Sum / delta);
-  #print "B ",B," ",BErr;
-  
-  lifeInv = -B;
-  lifeInvErr = BErr / (B * B) ;
-  if assumeLinear:
-    lifeInv = -B/A
-    if qMPV:
-      lifeInv = -B/qMPV
-  
   logFun_xs = []
   logFun_ys = []
-  # calculate chisq
-  chi2 = 0;
-  for ihist in range(nBins):
-    if(cnt[ihist] < 3):
-       continue;
-    if(err[ihist] == 0):
-       continue;
-    xx = (tck[ihist] - tck[0]);
-    yy = numpy.exp(A - xx * lifeInv);
+
+  if doRootExpFit:
+    expSuffix = None
+    if doPlots:
+      expSuffix = suffix
+    lifetime, lifetimeErr, constParam, constParamErr, chi2ndf = rootExpFitPoints(tck,ave,err,[tck[0],tck[-1]],suffix=expSuffix)
+    lifeInv = 1./lifetime
+    A = constParam
+    B = -lifeInv
+  else:
+    # fit to find the 1/lifetime
+    Sum = 0.;
+    sumx = 0.;
+    sumy = 0.;
+    sumxy = 0.;
+    sumx2 = 0.;
+    sumy2 = 0.;
+    xx = 0.
+    yy = 0. 
+    wght = 0. 
+    arg = 0.
+    fitcnt = 0;
+    
+    for ihist in range(nBins):
+      if(cnt[ihist] < 3):
+         continue;
+      if(err[ihist] == 0):
+        continue;
+      xx = (tck[ihist] - tck[0]);
+      if doLogFit or assumeLinear:
+        yy = ave[ihist]
+      else:
+        yy = numpy.log(ave[ihist]);
+      logPlot_xs.append(xx)
+      logPlot_ys.append(yy)
+      # error on log(x) = dx / x
+      arg = ave[ihist] / err[ihist];
+      if assumeLinear:
+        arg = 1. / err[ihist];
+      wght = arg * arg;
+      Sum += wght;
+      sumx += wght * xx;
+      sumy += wght * yy;
+      sumx2 += wght * xx * xx;
+      sumxy += wght * xx * yy;
+      sumy2 += wght * yy * yy;
+      ++fitcnt;
+    # calculate coefficients
+    delta = Sum * sumx2 - sumx * sumx;
+    #print "delta ",delta
+    A = (sumx2 * sumy - sumx * sumxy) / delta;
+    #print "A ", A
+    # slope = 1 / lifetime
+    B = (sumxy * Sum  - sumx * sumy) / delta;
+    # calculate the error
+    ndof = fitcnt - 2;
+    varnce = (sumy2 + A*A*Sum + B*B*sumx2 - 2 * (A*sumy + B*sumxy - A*B*sumx)) / ndof;
+    BErr = numpy.sqrt(varnce * Sum / delta);
+    #print "B ",B," ",BErr;
+    
+    lifeInv = -B;
+    lifeInvErr = BErr / (B * B) ;
     if assumeLinear:
-        yy = A - xx * lifeInv
-    arg = (yy - ave[ihist]) / err[ihist];
-    chi2 += arg * arg;
-    #print "chk ", ihist, " xx ", xx, " yy ", yy, " ave ", ave[ihist], " arg ", arg, "\n";
-    logFun_xs.append(xx)
-    logFun_ys.append(A-xx*lifeInv)
-  chi2ndof = chi2 / ndof;
+      lifeInv = -B/A
+      if qMPV:
+        lifeInv = -B/qMPV
+    
+    # calculate chisq
+    chi2 = 0;
+    for ihist in range(nBins):
+      if(cnt[ihist] < 3):
+         continue;
+      if(err[ihist] == 0):
+         continue;
+      xx = (tck[ihist] - tck[0]);
+      yy = numpy.exp(A - xx * lifeInv);
+      if assumeLinear:
+          yy = A - xx * lifeInv
+      arg = (yy - ave[ihist]) / err[ihist];
+      chi2 += arg * arg;
+      #print "chk ", ihist, " xx ", xx, " yy ", yy, " ave ", ave[ihist], " arg ", arg, "\n";
+      logFun_xs.append(xx)
+      logFun_ys.append(A-xx*lifeInv)
+    chi2ndof = chi2 / ndof;
 
   if doPlots:
     if qMPV:
@@ -231,7 +278,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
   return 1./lifeInv
 
 
-def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,assumeLinear=False,qMPV=None,lifetimeTrue=None):
+def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,assumeLinear=False,doRootExpFit=False,qMPV=None,lifetimeTrue=None):
   assert(len(ts)==len(qMeass))
   assert( not (doLogFit and assumeLinear))
   nHits = len(ts)
@@ -274,13 +321,25 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,as
     redoaveerr = numpy.sqrt(redoavevariance)
     redoaveerrlog = redoaveerr
   
-  coefs, cov = numpy.polyfit(redot,redoavelog,1,w=1./redoaveerrlog,cov=True)
-  numpyLife = -1/coefs[0]
-  numpyLifeVar = numpy.abs(cov[0][0]/coefs[0]**4)
-  if assumeLinear:
-    numpyLife = -coefs[1]/coefs[0]
-    if qMPV:
-      numpyLife = -qMPV/coefs[0]
+  coefs = [0.,0.]
+  numpyLife = None
+  numpyLifeVar = None
+  if doRootExpFit:
+    expSuffix = None
+    if doPlots:
+      expSuffix = "Numpy"+suffix
+    numpyLife, lifetimeErr, constParam, constParamErr, chi2ndf = rootExpFitPoints(redot,redoave,redoaveerr,[redot[0],redot[-1]],suffix=expSuffix)
+    coefs[1] = constParam
+    coefs[0] = -1./numpyLife
+    numpyLifeVar = lifetimeErr**2
+  else:
+    coefs, cov = numpy.polyfit(redot,redoavelog,1,w=1./redoaveerrlog,cov=True)
+    numpyLife = -1/coefs[0]
+    numpyLifeVar = numpy.abs(cov[0][0]/coefs[0]**4)
+    if assumeLinear:
+      numpyLife = -coefs[1]/coefs[0]
+      if qMPV:
+        numpyLife = -qMPV/coefs[0]
 
   if doPlots:
     fig, ax = mpl.subplots()
@@ -468,6 +527,7 @@ if __name__ == "__main__":
   doLogFit = False
   doGaus = False
   doLinear = False
+  doRootExpFit = False
 
   crm = ChargeRatioMethod()
   
@@ -481,8 +541,8 @@ if __name__ == "__main__":
     doPlots = (iCluster < 5)
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
-    life = bruceMethod(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    life = bruceMethod(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     #crm.processCluster(ts,qMeass)
     lifes.append(life/1000.)
     lifesNumpy.append(lifeNumpy/1000.)
