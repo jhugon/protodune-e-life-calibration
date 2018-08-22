@@ -57,7 +57,7 @@ def rootExpFitPoints(xs,ys,yerrs,fitrange,suffix=None):
   graph = root.TGraphErrors()
   for iPoint in range(len(xs)):
     graph.SetPoint(iPoint,xs[iPoint],ys[iPoint])
-    if yerrs:
+    if not (yerrs is None):
       graph.SetPointError(iPoint,0.,yerrs[iPoint])
   fitrslt = graph.Fit(f,"EX0SQ","",fitrange[0],fitrange[1])
   chi2ndf = -1.
@@ -93,6 +93,52 @@ def directFitExpHits(tss,qMeass,suffix="",doPlots=True,maxChargeCut=1500.):
   life, lifeErr, constParam, constParamErr, chi2ndf = rootExpFitPoints(ts,qs,None,[ts[0],ts[-1]],suffix=suffix2)
   return life, lifeErr
 
+def rooLandauGausFitter(hist,suffix):
+   #hist = Hist(1500,0,1500)
+   #for chargeVal in chargeValues:
+   #  hist.Fill(chargeVal)
+
+   q = root.RooRealVar("q","Charge",0,1500)
+   observables = root.RooArgSet(q)
+   observableList = root.RooArgList(q)
+
+   mpv = root.RooRealVar("mpv","mpv landau",300.,0,1500)
+   xi = root.RooRealVar("xi","xi landau",50.,0,500.)
+
+   landau = root.RooLandau("landau","landau",q,mpv,xi)
+
+   mg = root.RooRealVar("mg","mg",0)
+   sg = root.RooRealVar("sg","sg",100,0,100.)
+   gauss = root.RooGaussian("gauss","gauss",q,mg,sg)
+
+   q.setBins(10000,"cache")
+   langaus = root.RooFFTConvPdf("langaus","landau (X) gauss",q,landau,gauss)
+
+   model = langaus
+
+   #data = model.generate(observables,10000)
+   data = root.RooDataHist("data","",observableList,hist)
+
+   model.fitTo(data,root.RooFit.Verbose(False))
+
+   if not (suffix is None):
+     frame = q.frame(root.RooFit.Title("landau (x) gauss convolution"))
+     data.plotOn(frame)
+     model.plotOn(frame)
+
+     c = root.TCanvas("rf208_convolution","rf208_convolution",600,600)
+     root.gPad.SetLeftMargin(0.15)
+     frame.GetYaxis().SetTitleOffset(1.4)
+     frame.Draw()
+     #frame.Draw("same")
+     #axisHist = root.TH2F("axisHist","",1,0,50,1,0,1000)
+     ##axisHist = root.TH2F("axisHist","",1,-5,5,1,0,1200)
+     #axisHist.Draw()
+     #frame.Draw("same")
+     c.SaveAs("roofit{}.png".format(suffix))
+   return mpv.getVal(), mpv.getError()
+
+
 def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None,assumeLinear=False,qMPV=None,lifetimeTrue=None,doRootExpFit=False):
 
   assert(len(ts)==len(qMeass))
@@ -105,11 +151,14 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
   err = numpy.zeros(nBins)
   cnt = numpy.zeros(nBins)
 
+
   fig = None
   ax = None
   name = uuid.uuid1().hex
   canvas = None
   binHists = [Hist(50,0,1500) for i in range(nBins)]
+  rooMPVs = numpy.zeros(nBins)
+  rooErrs = numpy.zeros(nBins)
   if doPlots:
     fig, ax = mpl.subplots()
     canvas = root.TCanvas(name+"canvas")
@@ -137,9 +186,15 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
   maxChg = ave * 1.3
   minChg = ave * 0.5
 
+  for iBin in range(nBins):
+    suffix = None
+    if doPlots:
+      suffix = "{}_bin{}".format(suffix,iBin)
+    rooMPVs[iBin], rooErrs[iBin] = rooLandauGausFitter(binHists[iBin],suffix=suffix)
+
   if doPlots:
     ax.plot(tck,ave,'or')
-    #gausfunc = root.TF1("gausfunc","gaus",0,1500)
+    gausfunc = root.TF1("gausfunc","gaus",0,1500)
     #for iBin in range(nBins):
     #  fitrslt = binHists[iBin].Fit(gausfunc,"S","",0,ave[iBin]*1.5)
     #  chi2ndf = fitrslt.Chi2()/fitrslt.Ndf()
@@ -157,6 +212,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
     #                captionright3="T: {:4.0f} Cnt: {:4.0f}".format(tck[iBin],cnt[iBin])
     #        )
     #  canvas.SaveAs("BinHist_{}_bin{}.png".format(suffix,iBin))
+
   
   
   if not doLogFit:
@@ -276,6 +332,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
       logFun_ys.append(A-xx*lifeInv)
     chi2ndof = chi2 / ndof;
 
+  lifetimeMPV, lifetimeErrMPV, constParamMPV, constParamErrMPV, chi2ndfMPV = rootExpFitPoints(tck,rooMPVs,rooErrs,[tck[0],tck[-1]])
   if doPlots:
     if qMPV:
       ax.set_ylim(0,qMPV*8)
@@ -289,6 +346,9 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
       ax.plot(ts,ts*B+A,'-g')
     else:
       ax.plot(ts,numpy.exp(ts*B+A),'-g')
+    if rooMPVs[0] != 0.:
+      ax.errorbar(tck,rooMPVs,yerr=rooErrs,fmt="oy")
+      ax.plot(ts,numpy.exp(-ts/lifetimeMPV+constParamMPV),':y')
     #ax.plot(ts,numpy.exp(ts*coefs[0]+coefs[1]),'-c')
     #ax.plot(tck,ave,'og')
     ax.errorbar(numpy.arange(nBins)*usPerBin+0.5*usPerBin,ave,xerr=0.5*usPerBin,yerr=err,fmt="ob")
@@ -314,7 +374,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
     fig.savefig("LandauLog{}.pdf".format(suffix))
     mpl.close(fig)
 
-  return 1./lifeInv
+  return 1./lifeInv, lifetimeMPV
 
 
 def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,assumeLinear=False,doRootExpFit=False,qMPV=None,lifetimeTrue=None):
@@ -587,6 +647,7 @@ if __name__ == "__main__":
   lifesNumpy = []
   lifesNumpyErr = []
   lifesLogNumpy = []
+  lifesMPV = []
   lifesDirect1500 = []
   lifesDirect1000 = []
   lifesDirect500 = []
@@ -596,35 +657,37 @@ if __name__ == "__main__":
   pullsDirect500 = []
   pullsNumpy = []
   pullsLogNumpy = []
-  for iCluster in range(1000):
+  for iCluster in range(100):
   #for iCluster in range(10000):
     doPlots = (iCluster < 5)
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
-    life = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    life, lifeMPV = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    #lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     #crm.processCluster(ts,qMeass)
     lifes.append(life/1000.)
-    lifesNumpy.append(lifeNumpy/1000.)
-    lifesNumpyErr.append(numpy.sqrt(lifeNumpyVar)/1000.)
-    pullsNumpy.append(lifeNumpy/numpy.sqrt(lifeNumpyVar))
-    lifeDirect1500, lifeDirect1500Err = directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut1500_{}".format(iCluster),maxChargeCut=1500)
+    lifesMPV.append(lifeMPV/1000.)
+    #lifesNumpy.append(lifeNumpy/1000.)
+    #lifesNumpyErr.append(numpy.sqrt(lifeNumpyVar)/1000.)
+    #pullsNumpy.append(lifeNumpy/numpy.sqrt(lifeNumpyVar))
+    #lifeDirect1500, lifeDirect1500Err = directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut1500_{}".format(iCluster),maxChargeCut=1500)
     #lifeDirect1000, lifeDirect1000Err = directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut1000_{}".format(iCluster),maxChargeCut=1000)
     #lifeDirect500, lifeDirect500Err = directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut500_{}".format(iCluster),maxChargeCut=500)
 
-    lifesDirect1500.append(lifeDirect1500/1000.)
+    #lifesDirect1500.append(lifeDirect1500/1000.)
     #lifesDirect1000.append(lifeDirect1000/1000.)
     #lifesDirect500.append(lifeDirect500/1000.)
 
-    lifesDirect1500Err.append(lifeDirect1500Err/1000.)
+    #lifesDirect1500Err.append(lifeDirect1500Err/1000.)
 
-    pullsDirect1500.append((lifeDirect1500-lifetimeTrue)/lifeDirect1500Err)
+    #pullsDirect1500.append((lifeDirect1500-lifetimeTrue)/lifeDirect1500Err)
     #pullsDirect1000.append((lifeDirect1000-lifetimeTrue)/lifeDirect1000Err)
     #pullsDirect500.append((lifeDirect500-lifetimeTrue)/lifeDirect500Err)
 
   fig, ax = mpl.subplots()
   ax.hist(lifes,bins=30,range=[0,6],histtype='step',label="Bruce Method")
   ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step',label="Bruce Numpy")
+  ax.hist(lifesMPV,bins=30,range=[0,6],histtype='step',label="Fit Bins and Exp")
   ax.hist(lifesDirect1500,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 1500")
   #ax.hist(lifesDirect1000,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 1000")
   #ax.hist(lifesDirect500,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 500")
