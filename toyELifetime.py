@@ -69,7 +69,7 @@ def rootExpFitPoints(xs,ys,yerrs,fitrange,suffix=None):
   lifetime = -1./param
   lifetimeErr = paramErr/param**2
   constParam = fitrslt.Parameter(0)
-  constParamErr = fitrslt.Parameter(1)
+  constParamErr = fitrslt.Parameter(0)
   #print "life: {} +/- {}".format(lifetime,lifetimeErr)
 
   if suffix:
@@ -91,7 +91,7 @@ def directFitExpHits(tss,qMeass,suffix="",doPlots=True,maxChargeCut=1500.):
   if doPlots:
     suffix2="DirectFit"+suffix
   life, lifeErr, constParam, constParamErr, chi2ndf = rootExpFitPoints(ts,qs,None,[ts[0],ts[-1]],suffix=suffix2)
-  return life
+  return life, lifeErr
 
 def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None,assumeLinear=False,qMPV=None,lifetimeTrue=None,doRootExpFit=False):
 
@@ -139,24 +139,24 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
 
   if doPlots:
     ax.plot(tck,ave,'or')
-    gausfunc = root.TF1("gausfunc","gaus",0,1500)
-    for iBin in range(nBins):
-      fitrslt = binHists[iBin].Fit(gausfunc,"S","",0,ave[iBin]*1.5)
-      chi2ndf = fitrslt.Chi2()/fitrslt.Ndf()
-      gausmu = fitrslt.Parameter(1)
-      gausmuerr = fitrslt.ParError(1)
-      gaussigma = fitrslt.Parameter(2)
-      gaussigmaerr = fitrslt.ParError(2)
-      setHistTitles(binHists[iBin],"Charge","Hits")
-      binHists[iBin].Sumw2()
-      binHists[iBin].Draw()
-      gausfunc.Draw("same")
-      drawStandardCaptions(canvas,"Cluster {} Bin {}".format(suffix,iBin),
-                    captionright1="Truncated: {:4.0f}-{:4.0f}".format(minChg[iBin],maxChg[iBin]),
-                    captionright2="Ave: {:4.0f}".format(ave[iBin]),
-                    captionright3="T: {:4.0f} Cnt: {:4.0f}".format(tck[iBin],cnt[iBin])
-            )
-      canvas.SaveAs("BinHist_{}_bin{}.png".format(suffix,iBin))
+    #gausfunc = root.TF1("gausfunc","gaus",0,1500)
+    #for iBin in range(nBins):
+    #  fitrslt = binHists[iBin].Fit(gausfunc,"S","",0,ave[iBin]*1.5)
+    #  chi2ndf = fitrslt.Chi2()/fitrslt.Ndf()
+    #  gausmu = fitrslt.Parameter(1)
+    #  gausmuerr = fitrslt.ParError(1)
+    #  gaussigma = fitrslt.Parameter(2)
+    #  gaussigmaerr = fitrslt.ParError(2)
+    #  setHistTitles(binHists[iBin],"Charge","Hits")
+    #  binHists[iBin].Sumw2()
+    #  binHists[iBin].Draw()
+    #  gausfunc.Draw("same")
+    #  drawStandardCaptions(canvas,"Cluster {} Bin {}".format(suffix,iBin),
+    #                captionright1="Truncated: {:4.0f}-{:4.0f}".format(minChg[iBin],maxChg[iBin]),
+    #                captionright2="Ave: {:4.0f}".format(ave[iBin]),
+    #                captionright3="T: {:4.0f} Cnt: {:4.0f}".format(tck[iBin],cnt[iBin])
+    #        )
+    #  canvas.SaveAs("BinHist_{}_bin{}.png".format(suffix,iBin))
   
   
   if not doLogFit:
@@ -297,6 +297,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
     ax.set_ylim(0,1000)
     fig.savefig("Landau{}.png".format(suffix))
     fig.savefig("Landau{}.pdf".format(suffix))
+    mpl.close(fig)
     
     
     fig, ax = mpl.subplots()
@@ -311,6 +312,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
     ax.set_ylim(4.5,7)
     fig.savefig("LandauLog{}.png".format(suffix))
     fig.savefig("LandauLog{}.pdf".format(suffix))
+    mpl.close(fig)
 
   return 1./lifeInv
 
@@ -400,6 +402,7 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,as
     ax.set_ylim(0,1000)
     fig.savefig("NumpyLandau{}.png".format(suffix))
     fig.savefig("NumpyLandau{}.pdf".format(suffix))
+    mpl.close(fig)
     
     fig, ax = mpl.subplots()
     ax.scatter(ts-redot[0],numpy.log(qMeass),2.,c='k',lw=0)
@@ -412,6 +415,7 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,as
     ax.set_ylim(4.5,7)
     fig.savefig("NumpyLandauLog{}.png".format(suffix))
     fig.savefig("NumpyLandauLog{}.pdf".format(suffix))
+    mpl.close(fig)
 
   return numpyLife, numpyLifeVar
 
@@ -545,6 +549,7 @@ class ChargeRatioMethod(object):
       ax.set_xlabel("Delta t [us]")
       ax.set_ylabel("Smoothed Fitted $log(Q_1/Q_2)$")
       fig.savefig("ChargeRatioVDeltaT_spline.png")
+      mpl.close(fig)
         
       fig, ax = mpl.subplots()
       ax.plot(xs,-1./spline(xs,1)/1000.)
@@ -554,6 +559,7 @@ class ChargeRatioMethod(object):
       ax.set_ylabel("Electron lifetime [ms]")
       ax.set_ylim(0,6)
       fig.savefig("ChargeRatioVDeltaT_splineDeriv.png")
+      mpl.close(fig)
 
 if __name__ == "__main__":
   nBins = 10
@@ -579,33 +585,49 @@ if __name__ == "__main__":
   
   lifes = []
   lifesNumpy = []
+  lifesNumpyErr = []
   lifesLogNumpy = []
   lifesDirect1500 = []
   lifesDirect1000 = []
   lifesDirect500 = []
+  lifesDirect1500Err = []
+  pullsDirect1500 = []
+  pullsDirect1000 = []
+  pullsDirect500 = []
   pullsNumpy = []
   pullsLogNumpy = []
-  #for iCluster in range(1000):
-  for iCluster in range(10000):
+  for iCluster in range(1000):
+  #for iCluster in range(10000):
     doPlots = (iCluster < 5)
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
-    #life = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    #lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    life = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     #crm.processCluster(ts,qMeass)
-    #lifes.append(life/1000.)
-    #lifesNumpy.append(lifeNumpy/1000.)
-    #pullsNumpy.append(lifeNumpy/numpy.sqrt(lifeNumpyVar))
-    lifesDirect1500.append(directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut1500_{}".format(iCluster),maxChargeCut=1500)/1000.)
-    lifesDirect1000.append(directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut1000_{}".format(iCluster),maxChargeCut=1000)/1000.)
-    lifesDirect500.append(directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut500_{}".format(iCluster),maxChargeCut=500)/1000.)
+    lifes.append(life/1000.)
+    lifesNumpy.append(lifeNumpy/1000.)
+    lifesNumpyErr.append(numpy.sqrt(lifeNumpyVar)/1000.)
+    pullsNumpy.append(lifeNumpy/numpy.sqrt(lifeNumpyVar))
+    lifeDirect1500, lifeDirect1500Err = directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut1500_{}".format(iCluster),maxChargeCut=1500)
+    #lifeDirect1000, lifeDirect1000Err = directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut1000_{}".format(iCluster),maxChargeCut=1000)
+    #lifeDirect500, lifeDirect500Err = directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut500_{}".format(iCluster),maxChargeCut=500)
+
+    lifesDirect1500.append(lifeDirect1500/1000.)
+    #lifesDirect1000.append(lifeDirect1000/1000.)
+    #lifesDirect500.append(lifeDirect500/1000.)
+
+    lifesDirect1500Err.append(lifeDirect1500Err/1000.)
+
+    pullsDirect1500.append((lifeDirect1500-lifetimeTrue)/lifeDirect1500Err)
+    #pullsDirect1000.append((lifeDirect1000-lifetimeTrue)/lifeDirect1000Err)
+    #pullsDirect500.append((lifeDirect500-lifetimeTrue)/lifeDirect500Err)
 
   fig, ax = mpl.subplots()
-  #ax.hist(lifes,bins=30,range=[0,6],histtype='step')
-  #ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
+  ax.hist(lifes,bins=30,range=[0,6],histtype='step',label="Bruce Method")
+  ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step',label="Bruce Numpy")
   ax.hist(lifesDirect1500,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 1500")
-  ax.hist(lifesDirect1000,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 1000")
-  ax.hist(lifesDirect500,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 500")
+  #ax.hist(lifesDirect1000,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 1000")
+  #ax.hist(lifesDirect500,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 500")
   ax.axvline(lifetimeTrue/1000.,c='m')
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Toy Clusters / Bin")
@@ -613,7 +635,37 @@ if __name__ == "__main__":
   fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
   fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
   fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  mpl.close(fig)
 
   #crm.calculate()
 
+  fig, ax = mpl.subplots()
+  ax.hist(pullsNumpy,bins=50,range=[-5,5],histtype='step',label="Numpy")
+  ax.hist(pullsDirect1500,bins=50,range=[-5,5],histtype='step',label="Exp Fit, Charge < 1500")
+  ax.hist(pullsDirect1000,bins=50,range=[-5,5],histtype='step',label="Exp Fit, Charge < 1000")
+  ax.hist(pullsDirect500,bins=50,range=[-5,5],histtype='step',label="Exp Fit, Charge < 500")
+  ax.set_xlabel("Pull on Electron Lifetime")
+  ax.set_ylabel("Toy Clusters / Bin")
+  ax.legend()
+  fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
+  fig.savefig("ToyLifetimePulls_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyLifetimePulls_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  mpl.close(fig)
 
+  fig, ax = mpl.subplots()
+  hist = ax.hist2d(lifesNumpy,lifesNumpyErr,bins=30,range=[[0,6],[0,6]])
+  ax.axvline(lifetimeTrue/1000.,c='m')
+  cbar = fig.colorbar(hist[3])
+  fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
+  fig.savefig("ToyNumpyLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyNumpyLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  mpl.close(fig)
+
+  fig, ax = mpl.subplots()
+  hist = ax.hist2d(lifesDirect1500,lifesDirect1500,bins=30,range=[[0,6],[0,6]])
+  ax.axvline(lifetimeTrue/1000.,c='m')
+  cbar = fig.colorbar(hist[3])
+  fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
+  fig.savefig("ToyDirectLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyDirectLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  mpl.close(fig)
