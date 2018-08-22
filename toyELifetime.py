@@ -81,10 +81,10 @@ def rootExpFitPoints(xs,ys,yerrs,fitrange,suffix=None):
   del graph
   return lifetime, lifetimeErr, constParam, constParamErr, chi2ndf
 
-def directFitExpHits(tss,qMeass,suffix="",doPlots=True):
+def directFitExpHits(tss,qMeass,suffix="",doPlots=True,maxChargeCut=1500.):
   ts = numpy.array(tss)
   qs = numpy.array(qMeass)
-  goodHits = qs < 400.
+  goodHits = qs < maxChargeCut
   ts = ts[goodHits]
   qs = qs[goodHits]
   suffix2=None
@@ -558,6 +558,8 @@ class ChargeRatioMethod(object):
 if __name__ == "__main__":
   nBins = 10
   pointsPerBin = 400./nBins
+  #nBins = 5
+  #pointsPerBin = 100./nBins
   usPerBin = 100.
   qMPV = 300.
   lifetimeTrue = 3000. # us
@@ -565,43 +567,53 @@ if __name__ == "__main__":
   doGaus = False
   doLinear = False
   doRootExpFit = False
+  distType = "Landau"
+  distTypeLabel = "Landau Charge "
+  if doGaus:
+    distType = "Gaus"
+    distTypeLabel = "Gaussian Charge "
+
+  caseStr = "{}_bins{}_hitpbin{:.0f}".format(distType,nBins,pointsPerBin)
 
   crm = ChargeRatioMethod()
   
   lifes = []
   lifesNumpy = []
   lifesLogNumpy = []
-  lifesDirect = []
+  lifesDirect1500 = []
+  lifesDirect1000 = []
+  lifesDirect500 = []
   pullsNumpy = []
   pullsLogNumpy = []
   #for iCluster in range(1000):
-  for iCluster in range(1000):
+  for iCluster in range(10000):
     doPlots = (iCluster < 5)
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
-    life = bruceMethod(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    lifeDirect = directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_{}".format(iCluster))
+    #life = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    #lifeNumpy, lifeNumpyVar = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     #crm.processCluster(ts,qMeass)
-    lifes.append(life/1000.)
-    lifesNumpy.append(lifeNumpy/1000.)
-    pullsNumpy.append(lifeNumpy/numpy.sqrt(lifeNumpyVar))
-    lifesDirect.append(lifeDirect/1000.)
+    #lifes.append(life/1000.)
+    #lifesNumpy.append(lifeNumpy/1000.)
+    #pullsNumpy.append(lifeNumpy/numpy.sqrt(lifeNumpyVar))
+    lifesDirect1500.append(directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut1500_{}".format(iCluster),maxChargeCut=1500)/1000.)
+    lifesDirect1000.append(directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut1000_{}".format(iCluster),maxChargeCut=1000)/1000.)
+    lifesDirect500.append(directFitExpHits(ts,qMeass,doPlots=doPlots,suffix="_"+caseStr+"_cut500_{}".format(iCluster),maxChargeCut=500)/1000.)
 
   fig, ax = mpl.subplots()
-  ax.hist(lifes,bins=30,range=[0,6],histtype='step')
-  ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
-  ax.hist(lifesDirect,bins=30,range=[0,6],histtype='step')
+  #ax.hist(lifes,bins=30,range=[0,6],histtype='step')
+  #ax.hist(lifesNumpy,bins=30,range=[0,6],histtype='step')
+  ax.hist(lifesDirect1500,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 1500")
+  ax.hist(lifesDirect1000,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 1000")
+  ax.hist(lifesDirect500,bins=30,range=[0,6],histtype='step',label="Exp Fit, Charge < 500")
   ax.axvline(lifetimeTrue/1000.,c='m')
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Toy Clusters / Bin")
-  distType = "Landau"
-  distTypeLabel = ""
-  if doGaus:
-    distType = "Gaus"
-    distTypeLabel = "Gaussian Charge "
+  ax.legend()
   fig.text(0.15,0.9,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left')
   fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
   fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
 
   #crm.calculate()
+
+
