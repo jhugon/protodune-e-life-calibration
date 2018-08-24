@@ -622,6 +622,8 @@ class ChargeRatioMethod(object):
       mpl.close(fig)
 
 if __name__ == "__main__":
+  print "Start time: ", datetime.datetime.now().replace(microsecond=0).isoformat(' ')
+
   nBins = 10
   pointsPerBin = 400./nBins
   #nBins = 5
@@ -657,7 +659,7 @@ if __name__ == "__main__":
   pullsDirect500 = []
   pullsNumpy = []
   pullsLogNumpy = []
-  for iCluster in range(100):
+  for iCluster in range(1000):
   #for iCluster in range(10000):
     doPlots = (iCluster < 5)
     #doPlots = False
@@ -732,3 +734,5 @@ if __name__ == "__main__":
   fig.savefig("ToyDirectLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
   fig.savefig("ToyDirectLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
   mpl.close(fig)
+
+  print "End time: ", datetime.datetime.now().replace(microsecond=0).isoformat(' ')
