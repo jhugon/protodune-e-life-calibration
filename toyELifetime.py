@@ -5,6 +5,8 @@ from helpers import *
 import numpy
 import sys
 from matplotlib import pylab as mpl
+import matplotlib.patches
+import matplotlib.collections
 
 root.gROOT.SetBatch(True)
 RAND = root.TRandom3(7)
@@ -86,16 +88,54 @@ def rootExpFitPoints(xs,ys,yerrs,fitrange,suffix=None):
   del graph
   return lifetime, lifetimeErr, constParam, constParamErr, chi2ndof
 
-def directFitExpHits(tss,qMeass,suffix="",doPlots=True,maxChargeCut=1500.):
+def directFitExpHits(tss,qMeass,suffix="",doPlots=True,usPerBin=100.,qMPV=None,lifetimeTrue=None):
   ts = numpy.array(tss)
   qs = numpy.array(qMeass)
-  goodHits = qs < maxChargeCut
-  ts = ts[goodHits]
-  qs = qs[goodHits]
-  suffix2=None
+  nHits = len(ts)
+  nBins = int(numpy.ceil((ts[-1]-ts[0]) / usPerBin))
+  ave = numpy.zeros(nBins)
+  cnt = numpy.zeros(nBins)
+  for t, qMeas in zip(ts,qMeass):
+      ## Now do the fit stuff
+      iBin = int(t // usPerBin)
+      if iBin < nBins and qMeas < 1500.:
+        ave[iBin] += qMeas
+        cnt[iBin] += 1
+  ave /= cnt
+  maxChg = ave * 1.3
+
+  goodHits = numpy.full(nHits,False,dtype=bool)
+  for ihist in range(nBins):
+    #ts, qMeass
+    inBin = numpy.logical_and(ts >= (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
+    goodInBin = numpy.logical_and(inBin,qs < maxChg[ihist])
+    goodHits = numpy.logical_or(goodHits,goodInBin)
+
+  tsGood = ts[goodHits]
+  qsGood = qs[goodHits]
+  life, lifeErr, constParam, constParamErr, chi2ndof = rootExpFitPoints(tsGood,qsGood,None,[tsGood[0],tsGood[-1]])
+
   if doPlots:
-    suffix2="DirectFit"+suffix
-  life, lifeErr, constParam, constParamErr, chi2ndof = rootExpFitPoints(ts,qs,None,[ts[0],ts[-1]],suffix=suffix2)
+    fig, ax = mpl.subplots()
+    if qMPV:
+      ax.set_ylim(0,qMPV*8)
+    patchList = []
+    for ihist in range(nBins):
+      patchList.append(matplotlib.patches.Rectangle((ihist*usPerBin,0),usPerBin,maxChg[ihist]))
+    patchCollection = matplotlib.collections.PatchCollection(patchList,facecolor='0.7',edgecolor='0.7')
+    ax.add_collection(patchCollection)
+    ax.scatter(ts,qs,15.,c=goodHits,lw=0,cmap="PiYG")
+    if qMPV and lifetimeTrue:
+      ax.plot(ts,qMPV*numpy.exp(-ts/lifetimeTrue),'-m')
+    ax.plot(ts,numpy.exp(-ts/life+constParam),'-g')
+    ax.set_xlabel("Drift Time [us]")
+    ax.set_ylabel("Charge")
+    ax.set_ylim(0,2000)
+    ax.margins(x=0.,y=0.)
+    fig.savefig("LandauDirect{}.png".format(suffix))
+    fig.savefig("LandauDirect{}.pdf".format(suffix))
+    mpl.close(fig)
+
   return life, lifeErr
 
 def rooLandauGausFitter(hist,suffix):
@@ -426,7 +466,7 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,as
     ltMaxHits = qMeass < 1500.
   for ihist in range(nBins):
     #ts, qMeass
-    inBin = numpy.logical_and(ts > (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
+    inBin = numpy.logical_and(ts >= (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
     goodHits = numpy.logical_and(inBin,ltMaxHits)
     
     nGoodPoints = len(qMeass[goodHits])
@@ -652,7 +692,7 @@ class ChargeRatioMethod(object):
 if __name__ == "__main__":
   print "Start time: ", datetime.datetime.now().replace(microsecond=0).isoformat(' ')
 
-  nClusters = 10
+  nClusters = 1000
   nBins = 10
   pointsPerBin = 400./nBins
   #nBins = 5
@@ -683,6 +723,8 @@ if __name__ == "__main__":
   lifesMPVErr = -1e6*numpy.ones(nClusters)
   lifesMPVChi2 = -1e6*numpy.ones(nClusters) 
   allBinChi2s = []
+  lifesDirect = -1e6*numpy.ones(nClusters) 
+  lifesDirectErr = -1e6*numpy.ones(nClusters) 
   for iCluster in range(nClusters):
     doPlots = (iCluster < 5)
     #doPlots = False
@@ -692,10 +734,12 @@ if __name__ == "__main__":
     lifesMPV[iCluster], lifesMPVErr[iCluster], lifesMPVChi2[iCluster], binChi2s = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_MPV_{}".format(iCluster),doPlots=doPlots,assumeLinear=doLinear,doFitBinsAndExp=True,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     allBinChi2s += binChi2s
     crm.processCluster(ts,qMeass)
+    lifesDirect[iCluster], lifesDirectErr[iCluster] = directFitExpHits(ts,qMeass,suffix="_"+caseStr+"_Direct_{}".format(iCluster),doPlots=doPlots)
 
   fig, ax = mpl.subplots()
   ax.hist(lifes/1000.,bins=50,range=[0,10],histtype='step',label="Bruce Method")
   ax.hist(lifesNumpy/1000.,bins=50,range=[0,10],histtype='step',label="Bruce Numpy")
+  ax.hist(lifesDirect/1000.,bins=50,range=[0,10],histtype='step',label="Direct Exp Fit")
   ax.hist(lifesMPV/1000.,bins=50,range=[0,10],histtype='step',label="Fit Bins and Exp")
   ax.axvline(lifetimeTrue/1000.,c='m')
   ax.set_xlabel("Electron Lifetime [ms]")
@@ -722,6 +766,7 @@ if __name__ == "__main__":
   fig, ax = mpl.subplots()
   #ax.hist(lifes/lifesErr,bins=50,range=[-50,50],histtype='step',label="Bruce")
   ax.hist(lifesNumpy/lifesNumpyErr,bins=50,range=[-10,10],histtype='step',label="Bruce Numpy")
+  ax.hist(lifesDirect/lifesDirectErr,bins=50,range=[-10,10],histtype='step',label="Direct Exp Fit")
   ax.hist(lifesMPV/lifesMPVErr,bins=50,range=[-10,10],histtype='step',label="Fit Bins and Exp")
   ax.set_xlabel("Pull on Electron Lifetime")
   ax.set_ylabel("Toy Clusters / Bin")
