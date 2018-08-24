@@ -120,17 +120,19 @@ def rooLandauGausFitter(hist,suffix):
    langaus = root.RooFFTConvPdf("langaus","landau (X) gauss",q,landau,gauss)
 
    model = landau
+   nParams = 2
 
    #data = model.generate(observables,10000)
    data = root.RooDataHist("data","",observableList,hist)
 
-   model.fitTo(data,root.RooFit.Verbose(False),root.RooFit.PrintEvalErrors(-1))
+   fitrslt = model.fitTo(data,root.RooFit.Save(True),root.RooFit.Verbose(False),root.RooFit.PrintEvalErrors(-1))
 
+   binChi2 = -9999.
+   frame = q.frame(root.RooFit.Title(""))
+   data.plotOn(frame)
+   model.plotOn(frame)
+   binChi2 = frame.chiSquare(nParams)
    if not (suffix is None):
-     #frame = q.frame(root.RooFit.Title("landau (x) gauss convolution"))
-     frame = q.frame(root.RooFit.Title(""))
-     data.plotOn(frame)
-     model.plotOn(frame)
 
      c = root.TCanvas("rf208_convolution","rf208_convolution",600,600)
      root.gPad.SetLeftMargin(0.15)
@@ -141,8 +143,15 @@ def rooLandauGausFitter(hist,suffix):
      ##axisHist = root.TH2F("axisHist","",1,-5,5,1,0,1200)
      #axisHist.Draw()
      #frame.Draw("same")
+     frame.SetTitle("")
+     frame.GetYaxis().SetTitle("Hits/Bin")
+     drawStandardCaptions(c,"{}".format(suffix),
+                   captionright1="MPV {:.3f} #pm {:.3f}".format(mpv.getVal(),mpv.getError()),
+                   captionright2="Min NLL: {:.2f}".format(fitrslt.minNll()),
+                   captionright3="#chi^{{2}}/NDF: {:.2f}".format(binChi2)
+           )
      c.SaveAs("roofit{}.png".format(suffix))
-   return mpv.getVal(), mpv.getError()
+   return mpv.getVal(), mpv.getError(), binChi2
 
 
 def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,chargeRatioVdtHist=None,assumeLinear=False,qMPV=None,lifetimeTrue=None,doRootExpFit=False,doFitBinsAndExp=False):
@@ -188,6 +197,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
 
   rooMPVs = numpy.zeros(nBins)
   rooErrs = numpy.zeros(nBins)
+  rooBinChi2s = [0]*nBins
   A = None
   B = None
   lifeInv = None
@@ -204,7 +214,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
       rooSuffix = None
       if doPlots:
         rooSuffix = "{}_bin{}".format(suffix,iBin)
-      rooMPVs[iBin], rooErrs[iBin] = rooLandauGausFitter(binHists[iBin],suffix=rooSuffix)
+      rooMPVs[iBin], rooErrs[iBin], rooBinChi2s[iBin] = rooLandauGausFitter(binHists[iBin],suffix=rooSuffix)
     lifetime, lifetimeErr, constParam, constParamErr, chi2ndof = rootExpFitPoints(numpy.arange(nBins)*usPerBin+0.5*usPerBin,rooMPVs,rooErrs,[tck[0],tck[-1]])
     A = constParam
     B = -1./lifetime
@@ -392,7 +402,7 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
       fig.savefig("LandauLog{}.pdf".format(suffix))
       mpl.close(fig)
 
-  return lifetime, lifetimeErr, chi2ndof
+  return lifetime, lifetimeErr, chi2ndof, rooBinChi2s
 
 
 def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,assumeLinear=False,doRootExpFit=False,qMPV=None,lifetimeTrue=None):
@@ -642,7 +652,7 @@ class ChargeRatioMethod(object):
 if __name__ == "__main__":
   print "Start time: ", datetime.datetime.now().replace(microsecond=0).isoformat(' ')
 
-  nClusters = 1000
+  nClusters = 10
   nBins = 10
   pointsPerBin = 400./nBins
   #nBins = 5
@@ -672,13 +682,15 @@ if __name__ == "__main__":
   lifesMPV = -1e6*numpy.ones(nClusters)
   lifesMPVErr = -1e6*numpy.ones(nClusters)
   lifesMPVChi2 = -1e6*numpy.ones(nClusters) 
+  allBinChi2s = []
   for iCluster in range(nClusters):
     doPlots = (iCluster < 5)
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
-    lifes[iCluster], lifesErr[iCluster], lifesChi2[iCluster] = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    lifes[iCluster], lifesErr[iCluster], lifesChi2[iCluster], DUMMY = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     lifesNumpy[iCluster], lifesNumpyErr[iCluster] = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    lifesMPV[iCluster], lifesMPVErr[iCluster], lifesMPVChi2[iCluster] = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_MPV_{}".format(iCluster),doPlots=doPlots,assumeLinear=doLinear,doFitBinsAndExp=True,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    lifesMPV[iCluster], lifesMPVErr[iCluster], lifesMPVChi2[iCluster], binChi2s = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_MPV_{}".format(iCluster),doPlots=doPlots,assumeLinear=doLinear,doFitBinsAndExp=True,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    allBinChi2s += binChi2s
     crm.processCluster(ts,qMeass)
 
   fig, ax = mpl.subplots()
@@ -770,6 +782,15 @@ if __name__ == "__main__":
   ax.set_ylabel("Error on Electron Lifetime [ms]")
   fig.savefig("ToyNumpyLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
   fig.savefig("ToyNumpyLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  mpl.close(fig)
+
+  fig, ax = mpl.subplots()
+  ax.hist(allBinChi2s,bins=100,range=[0,5],histtype='step')
+  ax.set_xlabel("Bin Landau Fit $\chi^2/NDF$")
+  ax.set_ylabel("Toy Clusters Bins / Bin")
+  fig.text(0.15,0.955,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left',va='bottom')
+  fig.savefig("ToyMPVBinChi2_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyMPVBinChi2_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
   mpl.close(fig)
 
   print "End time: ", datetime.datetime.now().replace(microsecond=0).isoformat(' ')
