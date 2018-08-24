@@ -9,6 +9,11 @@ from matplotlib import pylab as mpl
 root.gROOT.SetBatch(True)
 RAND = root.TRandom3(7)
 
+rooMsgServiceInstance = root.RooMsgService.instance()
+rooMsgServiceInstance.setSilentMode(True);
+for iStream in range(rooMsgServiceInstance.numStreams()):
+  rooMsgServiceInstance.setStreamStatus(iStream,False);
+
 def generateCluster(qMPV,lifetimeTrue,nHits,hitsPerus,doGaus=False,doLinear=False):
   """
   qMPV is the true charge deposited
@@ -119,7 +124,7 @@ def rooLandauGausFitter(hist,suffix):
    #data = model.generate(observables,10000)
    data = root.RooDataHist("data","",observableList,hist)
 
-   model.fitTo(data,root.RooFit.Verbose(False))
+   model.fitTo(data,root.RooFit.Verbose(False),root.RooFit.PrintEvalErrors(-1))
 
    if not (suffix is None):
      frame = q.frame(root.RooFit.Title("landau (x) gauss convolution"))
@@ -659,8 +664,7 @@ if __name__ == "__main__":
   pullsDirect500 = []
   pullsNumpy = []
   pullsLogNumpy = []
-  for iCluster in range(1000):
-  #for iCluster in range(10000):
+  for iCluster in range(10):
     doPlots = (iCluster < 5)
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
