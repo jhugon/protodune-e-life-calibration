@@ -577,12 +577,14 @@ class ChargeRatioMethod(object):
     setHistTitles(projectionX,"#Delta t [us]","Hit Pairs / Bin")
     setHistTitles(projectionY,"log(Q_{1}/Q_{2})","Hit Pairs / Bin")
     canvas = root.TCanvas("c"+uuid.uuid1().hex)
+    canvas.SetLogz(True)
     setupCOLZFrame(canvas)
     chargeRatioVdt.Draw("colz")
     profileX.Draw("same")
     drawStandardCaptions(canvas,"Toy Study")
     canvas.SaveAs("ChargeRatioVDeltaT{}.png".format(imgsuffix))
     setupCOLZFrame(canvas,True)
+    canvas.SetLogz(False)
     projectionX.Draw()
     drawStandardCaptions(canvas,"Toy Study")
     canvas.SaveAs("ChargeRatioVDeltaT{}_projX.png".format(imgsuffix))
@@ -666,6 +668,15 @@ class ChargeRatioMethod(object):
         )
     canvas.SaveAs("ChargeRatioVDeltaT{}_gausFitFit.png".format(imgsuffix))
 
+    canvas.SetLogz(True)
+    setupCOLZFrame(canvas)
+    chargeRatioVdt.Draw("colz")
+    fitfunc.Draw("same")
+    muGraph.Draw("pesame")
+    canvas.SaveAs("ChargeRatioVDeltaT{}_gausFitFitAndHist.png".format(imgsuffix))
+    setupCOLZFrame(canvas,True)
+    canvas.SetLogz(False)
+
     try:
       import scipy.interpolate
     except ImportError:
@@ -689,10 +700,10 @@ class ChargeRatioMethod(object):
       fig, ax = mpl.subplots()
       ax.plot(xs,-1./spline(xs,1)/1000.)
       #ax.plot(xs,-1./splineHard(xs,1)/1000.)
-      ax.plot(xs,-1./spline2(xs,1)/1000.)
+      #ax.plot(xs,-1./spline2(xs,1)/1000.)
       ax.set_xlabel("Delta t [us]")
       ax.set_ylabel("Electron lifetime [ms]")
-      ax.set_ylim(0,6)
+      #ax.set_ylim(0,6)
       fig.savefig("ChargeRatioVDeltaT{}_splineDeriv.png".format(imgsuffix))
       mpl.close(fig)
 
@@ -738,14 +749,15 @@ if __name__ == "__main__":
     doPlots = (iCluster < 5)
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
-    lifes[iCluster], lifesErr[iCluster], lifesChi2[iCluster], DUMMY = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    #lifesNumpy[iCluster], lifesNumpyErr[iCluster] = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    lifesMPV[iCluster], lifesMPVErr[iCluster], lifesMPVChi2[iCluster], binChi2s = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_MPV_{}".format(iCluster),doPlots=doPlots,assumeLinear=doLinear,doFitBinsAndExp=True,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    allBinChi2s += binChi2s
-    #crm.processCluster(ts,qMeass)
-    lifesDirect[iCluster], lifesDirectErr[iCluster] = directFitExpHits(ts,qMeass,suffix="_"+caseStr+"_Direct_{}".format(iCluster),doPlots=doPlots)
+    #lifes[iCluster], lifesErr[iCluster], lifesChi2[iCluster], DUMMY = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    ##lifesNumpy[iCluster], lifesNumpyErr[iCluster] = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    #lifesMPV[iCluster], lifesMPVErr[iCluster], lifesMPVChi2[iCluster], binChi2s = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_MPV_{}".format(iCluster),doPlots=doPlots,assumeLinear=doLinear,doFitBinsAndExp=True,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    #allBinChi2s += binChi2s
+    crm.processCluster(ts,qMeass)
+    #lifesDirect[iCluster], lifesDirectErr[iCluster] = directFitExpHits(ts,qMeass,suffix="_"+caseStr+"_Direct_{}".format(iCluster),doPlots=doPlots)
 
-  #crm.calculate()
+  crm.calculate()
+  sys.exit(0)
 
   fig, ax = mpl.subplots()
   ax.hist(lifes/1000.,bins=50,range=[0,10],histtype='step',label="Bruce Method")
