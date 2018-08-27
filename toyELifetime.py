@@ -549,9 +549,10 @@ def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,as
 
 class ChargeRatioMethod(object):
 
-  def __init__(self):
-    self.chargeRatioVdt = root.TH2F("chargeRatioVdt","",100,0,1000,100,-1.5,1.5)
+  def __init__(self,imgsuffix=""):
+    self.chargeRatioVdt = root.TH2F("chargeRatioVdt"+uuid.uuid1().hex,"",100,0,1000,100,-1.5,1.5)
     setHistTitles(self.chargeRatioVdt,"#Delta t [us]","log(Q_{1}/Q_{2})")
+    self.imgsuffix=imgsuffix
 
   def processCluster(self,ts,qMeass):
     assert(len(ts)==len(qMeass))
@@ -566,7 +567,8 @@ class ChargeRatioMethod(object):
             print ts[j], ts[i], qMeass[j], qMeass[i]
             raise e
 
-  def calculate(self):
+  def calculate(self,imgsuffix=""):
+    imgsuffix = self.imgsuffix+imgsuffix
     chargeRatioVdt = self.chargeRatioVdt
     profileX = chargeRatioVdt.ProfileX()
     projectionX = chargeRatioVdt.ProjectionX()
@@ -574,25 +576,25 @@ class ChargeRatioMethod(object):
     setHistTitles(profileX,"#Delta t [us]","<log(Q_{1}/Q_{2})>")
     setHistTitles(projectionX,"#Delta t [us]","Hit Pairs / Bin")
     setHistTitles(projectionY,"log(Q_{1}/Q_{2})","Hit Pairs / Bin")
-    canvas = root.TCanvas("c")
+    canvas = root.TCanvas("c"+uuid.uuid1().hex)
     setupCOLZFrame(canvas)
     chargeRatioVdt.Draw("colz")
     profileX.Draw("same")
     drawStandardCaptions(canvas,"Toy Study")
-    canvas.SaveAs("ChargeRatioVDeltaT.png")
+    canvas.SaveAs("ChargeRatioVDeltaT{}.png".format(imgsuffix))
     setupCOLZFrame(canvas,True)
     projectionX.Draw()
     drawStandardCaptions(canvas,"Toy Study")
-    canvas.SaveAs("ChargeRatioVDeltaT_projX.png")
+    canvas.SaveAs("ChargeRatioVDeltaT{}_projX.png".format(imgsuffix))
     projectionY.Draw()
     drawStandardCaptions(canvas,"Toy Study")
-    canvas.SaveAs("ChargeRatioVDeltaT_projY.png")
+    canvas.SaveAs("ChargeRatioVDeltaT{}_projY.png".format(imgsuffix))
 
-    fitfunc = root.TF1("func","pol1",0,5000)
+    fitfunc = root.TF1("func"+uuid.uuid1().hex,"pol1",0,5000)
     fitfunc.SetLineColor(root.kBlue)
     #fitrslt = profileX.Fit(fitfunc,"WLFSEM","",50,600)
     #fitrslt = profileX.Fit(fitfunc,"S","",50,600)
-    fitrslt = profileX.Fit(fitfunc,"SFM","",50,600)
+    fitrslt = profileX.Fit(fitfunc,"SFM","",0,1000)
     profileX.Draw("")
     fitfunc.Draw("same")
     chi2ndof = fitrslt.Chi2()/fitrslt.Ndf()
@@ -607,57 +609,62 @@ class ChargeRatioMethod(object):
             captionright1="e^{{-}} Lifetime = {:.2f} +/- {:.2f} ms".format(lifetime,lifetimeErr),
             captionright2="#chi^{{2}}/NDF = {:.2f}".format(chi2ndof)
         )
-    canvas.SaveAs("ChargeRatioVDeltaT_profX.png")
+    canvas.SaveAs("ChargeRatioVDeltaT{}_profX.png".format(imgsuffix))
     
-    gausfunc = root.TF1("gausfunc","gaus",-0.75,0.75)
+    gausfunc = root.TF1("gausfunc"+uuid.uuid1().hex,"gaus",-0.75,0.75)
     nBinsX = chargeRatioVdt.GetXaxis().GetNbins()
     muGraph = root.TGraphErrors()
     muList = numpy.zeros(nBinsX)
     dtList = numpy.zeros(nBinsX)
     muErrList = numpy.zeros(nBinsX)
+    iGoodBin = 0
     for iBinX in range(1,nBinsX+1):
       deltaTCenter = chargeRatioVdt.GetXaxis().GetBinCenter(iBinX)
       deltaTLow = chargeRatioVdt.GetXaxis().GetBinLowEdge(iBinX)
       deltaTHigh = chargeRatioVdt.GetXaxis().GetBinUpEdge(iBinX)
       xBinHist = getXBinHist(chargeRatioVdt,iBinX)
-      fitrslt = xBinHist.Fit(gausfunc,"S","",-0.75,0.75)
-      chi2ndof = fitrslt.Chi2()/fitrslt.Ndf()
-      gausmu = fitrslt.Parameter(1)
-      gausmuerr = fitrslt.ParError(1)
-      gaussigma = fitrslt.Parameter(2)
-      gaussigmaerr = fitrslt.ParError(2)
-      muGraph.SetPoint(iBinX-1,deltaTCenter,gausmu)
-      muGraph.SetPointError(iBinX-1,0.5*(deltaTHigh-deltaTLow),gausmuerr)
-      muList[iBinX-1] = gausmu
-      muErrList[iBinX-1] = gausmuerr
-      dtList[iBinX-1] = deltaTCenter
-      if iBinX % (nBinsX // 10) == 0:
-        xBinHist.Draw()
-        gausfunc.Draw("same")
-        setHistTitles(xBinHist,"log(Q_{1}/Q_{2})","Hit Pairs / Bin")
-        drawStandardCaptions(canvas,"Toy Study Slice {}, #Delta t: {:.0f} to {:.0f} us".format(iBinX,deltaTLow,deltaTHigh),
-                captionright1="#mu = {:.3f} #pm {:.3f}".format(gausmu,gausmuerr),
-                captionright2="#sigma = {:.3f} #pm {:.3f}".format(gaussigma,gaussigmaerr),
-                captionright3="#chi^{{2}}/NDF = {:.2f}".format(chi2ndof)
-            )
-        canvas.SaveAs("ChargeRatioVDeltaT_binHist{}.png".format(iBinX))
+      nEvents = xBinHist.Integral()
+      if nEvents >= 1000:
+        fitrslt = xBinHist.Fit(gausfunc,"S","",-0.75,0.75)
+        chi2ndof = fitrslt.Chi2()/fitrslt.Ndf()
+        gausmu = fitrslt.Parameter(1)
+        gausmuerr = fitrslt.ParError(1)
+        gaussigma = fitrslt.Parameter(2)
+        gaussigmaerr = fitrslt.ParError(2)
+        muGraph.SetPoint(iGoodBin,deltaTCenter,gausmu)
+        muGraph.SetPointError(iGoodBin,0.5*(deltaTHigh-deltaTLow),gausmuerr)
+        muList[iGoodBin] = gausmu
+        muErrList[iGoodBin] = gausmuerr
+        dtList[iGoodBin] = deltaTCenter
+        if iBinX % (nBinsX // 10) == 0:
+          xBinHist.Draw()
+          gausfunc.Draw("same")
+          setHistTitles(xBinHist,"log(Q_{1}/Q_{2})","Hit Pairs / Bin")
+          drawStandardCaptions(canvas,"Toy Study Slice {}, #Delta t: {:.0f} to {:.0f} us".format(iBinX,deltaTLow,deltaTHigh),
+                  captionright1="#mu = {:.3f} #pm {:.3f}".format(gausmu,gausmuerr),
+                  captionright2="#sigma = {:.3f} #pm {:.3f}".format(gaussigma,gaussigmaerr),
+                  captionright3="#chi^{{2}}/NDF = {:.2f}".format(chi2ndof)
+              )
+          canvas.SaveAs("ChargeRatioVDeltaT{}_binHist{}.png".format(imgsuffix,iBinX))
+        iGoodBin += 1
 
+    lifetime = -999.
+    lifetimeErr = -999.
     axisHist = drawGraphs(canvas,[muGraph],"#Delta t [us]","log(Q_{1}/Q_{2})")
-    fitrslt = muGraph.Fit(fitfunc,"QS","",500,1000)
-    fitfunc.Draw("same")
-    chi2ndof = fitrslt.Chi2()/fitrslt.Ndf()
-    slope = fitrslt.Parameter(1)
-    slopeErr = fitrslt.ParError(1)
-    lifetime = -1.
-    lifetimeErr = -1.
-    if slope != 0.:
-      lifetime = -1./slope/1000.
-      lifetimeErr = slopeErr/slope**2/1000.
+    if muGraph.GetN() > 3:
+      fitrslt = muGraph.Fit(fitfunc,"QS","",0,1000)
+      fitfunc.Draw("same")
+      chi2ndof = fitrslt.Chi2()/fitrslt.Ndf()
+      slope = fitrslt.Parameter(1)
+      slopeErr = fitrslt.ParError(1)
+      if slope != 0.:
+        lifetime = -1./slope/1000.
+        lifetimeErr = slopeErr/slope**2/1000.
     drawStandardCaptions(canvas,"Toy Study",
             captionright1="e^{{-}} Lifetime = {:.2f} +/- {:.2f} ms".format(lifetime,lifetimeErr),
             captionright2="#chi^{{2}}/NDF = {:.2f}".format(chi2ndof)
         )
-    canvas.SaveAs("ChargeRatioVDeltaT_gausFitFit.png")
+    canvas.SaveAs("ChargeRatioVDeltaT{}_gausFitFit.png".format(imgsuffix))
 
     try:
       import scipy.interpolate
@@ -676,7 +683,7 @@ class ChargeRatioMethod(object):
       ax.plot(xs,spline2(xs))
       ax.set_xlabel("Delta t [us]")
       ax.set_ylabel("Smoothed Fitted $log(Q_1/Q_2)$")
-      fig.savefig("ChargeRatioVDeltaT_spline.png")
+      fig.savefig("ChargeRatioVDeltaT{}_spline.png".format(imgsuffix))
       mpl.close(fig)
         
       fig, ax = mpl.subplots()
@@ -686,17 +693,19 @@ class ChargeRatioMethod(object):
       ax.set_xlabel("Delta t [us]")
       ax.set_ylabel("Electron lifetime [ms]")
       ax.set_ylim(0,6)
-      fig.savefig("ChargeRatioVDeltaT_splineDeriv.png")
+      fig.savefig("ChargeRatioVDeltaT{}_splineDeriv.png".format(imgsuffix))
       mpl.close(fig)
+
+    return lifetime, lifetimeErr, chi2ndof
 
 if __name__ == "__main__":
   print "Start time: ", datetime.datetime.now().replace(microsecond=0).isoformat(' ')
 
-  nClusters = 1000
-  nBins = 10
-  pointsPerBin = 400./nBins
-  #nBins = 5
-  #pointsPerBin = 100./nBins
+  nClusters = 10000
+  #nBins = 10
+  #pointsPerBin = 400./nBins
+  nBins = 5
+  pointsPerBin = 100./nBins
   usPerBin = 100.
   qMPV = 300.
   lifetimeTrue = 3000. # us
@@ -730,15 +739,17 @@ if __name__ == "__main__":
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
     lifes[iCluster], lifesErr[iCluster], lifesChi2[iCluster], DUMMY = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    lifesNumpy[iCluster], lifesNumpyErr[iCluster] = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    #lifesNumpy[iCluster], lifesNumpyErr[iCluster] = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     lifesMPV[iCluster], lifesMPVErr[iCluster], lifesMPVChi2[iCluster], binChi2s = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_MPV_{}".format(iCluster),doPlots=doPlots,assumeLinear=doLinear,doFitBinsAndExp=True,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     allBinChi2s += binChi2s
-    crm.processCluster(ts,qMeass)
+    #crm.processCluster(ts,qMeass)
     lifesDirect[iCluster], lifesDirectErr[iCluster] = directFitExpHits(ts,qMeass,suffix="_"+caseStr+"_Direct_{}".format(iCluster),doPlots=doPlots)
+
+  #crm.calculate()
 
   fig, ax = mpl.subplots()
   ax.hist(lifes/1000.,bins=50,range=[0,10],histtype='step',label="Bruce Method")
-  ax.hist(lifesNumpy/1000.,bins=50,range=[0,10],histtype='step',label="Bruce Numpy")
+  #ax.hist(lifesNumpy/1000.,bins=50,range=[0,10],histtype='step',label="Bruce Numpy")
   ax.hist(lifesDirect/1000.,bins=50,range=[0,10],histtype='step',label="Direct Exp Fit")
   ax.hist(lifesMPV/1000.,bins=50,range=[0,10],histtype='step',label="Fit Bins and Exp")
   ax.axvline(lifetimeTrue/1000.,c='m')
@@ -747,10 +758,9 @@ if __name__ == "__main__":
   ax.legend()
   fig.text(0.15,0.955,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left',va='bottom')
   fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
-  fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.1f}.pdf".format(distType,nBins,pointsPerBin))
   mpl.close(fig)
 
-  crm.calculate()
 
   fig, ax = mpl.subplots()
   ax.hist(lifesChi2,bins=50,range=[0,10],histtype='step',label="Bruce")
@@ -765,7 +775,7 @@ if __name__ == "__main__":
 
   fig, ax = mpl.subplots()
   #ax.hist(lifes/lifesErr,bins=50,range=[-50,50],histtype='step',label="Bruce")
-  ax.hist(lifesNumpy/lifesNumpyErr,bins=50,range=[-10,10],histtype='step',label="Bruce Numpy")
+  #ax.hist(lifesNumpy/lifesNumpyErr,bins=50,range=[-10,10],histtype='step',label="Bruce Numpy")
   ax.hist(lifesDirect/lifesDirectErr,bins=50,range=[-10,10],histtype='step',label="Direct Exp Fit")
   ax.hist(lifesMPV/lifesMPVErr,bins=50,range=[-10,10],histtype='step',label="Fit Bins and Exp")
   ax.set_xlabel("Pull on Electron Lifetime")
@@ -819,7 +829,7 @@ if __name__ == "__main__":
   mpl.close(fig)
 
   fig, ax = mpl.subplots()
-  hist = ax.hist2d(lifesNumpy/1000.,lifesNumpyErr/1000.,bins=30,range=[[0,6],[0,6]])
+  #hist = ax.hist2d(lifesNumpy/1000.,lifesNumpyErr/1000.,bins=30,range=[[0,6],[0,6]])
   ax.axvline(lifetimeTrue/1000.,c='m')
   cbar = fig.colorbar(hist[3])
   fig.text(0.15,0.955,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left',va='bottom')
