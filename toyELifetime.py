@@ -95,6 +95,7 @@ def directFitExpHits(tss,qMeass,suffix="",doPlots=True,usPerBin=100.,qMPV=None,l
   nBins = int(numpy.ceil((ts[-1]-ts[0]) / usPerBin))
   ave = numpy.zeros(nBins)
   cnt = numpy.zeros(nBins)
+  fracChargeFit = numpy.zeros(nBins)
   for t, qMeas in zip(ts,qMeass):
       ## Now do the fit stuff
       iBin = int(t // usPerBin)
@@ -110,6 +111,8 @@ def directFitExpHits(tss,qMeass,suffix="",doPlots=True,usPerBin=100.,qMPV=None,l
     inBin = numpy.logical_and(ts >= (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
     goodInBin = numpy.logical_and(inBin,qs < maxChg[ihist])
     goodHits = numpy.logical_or(goodHits,goodInBin)
+    #fracChargeFit[ihist] = float(numpy.sum(goodInBin)) / numpy.sum(inBin)
+    fracChargeFit[ihist] = numpy.sum(goodInBin)
 
   tsGood = ts[goodHits]
   qsGood = qs[goodHits]
@@ -136,7 +139,11 @@ def directFitExpHits(tss,qMeass,suffix="",doPlots=True,usPerBin=100.,qMPV=None,l
     fig.savefig("LandauDirect{}.pdf".format(suffix))
     mpl.close(fig)
 
-  return life, lifeErr
+  fracChargeFitResult = []
+  for i in range(len(fracChargeFit)):
+    fracChargeFitResult.append([(i+0.5)*usPerBin,fracChargeFit[i]])
+
+  return life, lifeErr, fracChargeFitResult
 
 def rooLandauGausFitter(hist,suffix):
    #hist = Hist(1500,0,1500)
@@ -442,7 +449,11 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
       fig.savefig("LandauLog{}.pdf".format(suffix))
       mpl.close(fig)
 
-  return lifetime, lifetimeErr, chi2ndof, rooBinChi2s
+  fracChargeFitResult = []
+  for i in range(len(cnt)):
+    fracChargeFitResult.append([(i+0.5)*usPerBin,cnt[i]])
+
+  return lifetime, lifetimeErr, chi2ndof, rooBinChi2s, fracChargeFitResult
 
 
 def bruceNumpy(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=False,assumeLinear=False,doRootExpFit=False,qMPV=None,lifetimeTrue=None):
@@ -712,9 +723,9 @@ class ChargeRatioMethod(object):
 if __name__ == "__main__":
   print "Start time: ", datetime.datetime.now().replace(microsecond=0).isoformat(' ')
 
-  nClusters = 10000
-  #nBins = 10
-  #pointsPerBin = 400./nBins
+  nClusters = 100
+  nBins = 10
+  pointsPerBin = 400./nBins
   nBins = 5
   pointsPerBin = 100./nBins
   usPerBin = 100.
@@ -737,6 +748,7 @@ if __name__ == "__main__":
   lifes = -1e6*numpy.ones(nClusters)
   lifesErr = -1e6*numpy.ones(nClusters)
   lifesChi2 = -1e6*numpy.ones(nClusters) 
+  allFracChargeFits = []
   lifesNumpy = -1e6*numpy.ones(nClusters)
   lifesNumpyErr = -1e6*numpy.ones(nClusters)
   lifesMPV = -1e6*numpy.ones(nClusters)
@@ -745,19 +757,21 @@ if __name__ == "__main__":
   allBinChi2s = []
   lifesDirect = -1e6*numpy.ones(nClusters) 
   lifesDirectErr = -1e6*numpy.ones(nClusters) 
+  allFracChargeFitExps = []
   for iCluster in range(nClusters):
     doPlots = (iCluster < 5)
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
-    #lifes[iCluster], lifesErr[iCluster], lifesChi2[iCluster], DUMMY = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    ##lifesNumpy[iCluster], lifesNumpyErr[iCluster] = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
-    #lifesMPV[iCluster], lifesMPVErr[iCluster], lifesMPVChi2[iCluster], binChi2s = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_MPV_{}".format(iCluster),doPlots=doPlots,assumeLinear=doLinear,doFitBinsAndExp=True,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    lifes[iCluster], lifesErr[iCluster], lifesChi2[iCluster], DUMMY, fracChargeFit = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    allFracChargeFits += fracChargeFit
+    #lifesNumpy[iCluster], lifesNumpyErr[iCluster] = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    #lifesMPV[iCluster], lifesMPVErr[iCluster], lifesMPVChi2[iCluster], binChi2s, DUMMY = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_MPV_{}".format(iCluster),doPlots=doPlots,assumeLinear=doLinear,doFitBinsAndExp=True,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     #allBinChi2s += binChi2s
-    crm.processCluster(ts,qMeass)
-    #lifesDirect[iCluster], lifesDirectErr[iCluster] = directFitExpHits(ts,qMeass,suffix="_"+caseStr+"_Direct_{}".format(iCluster),doPlots=doPlots)
+    #crm.processCluster(ts,qMeass)
+    lifesDirect[iCluster], lifesDirectErr[iCluster], fracChargeFitExp = directFitExpHits(ts,qMeass,suffix="_"+caseStr+"_Direct_{}".format(iCluster),doPlots=doPlots)
+    allFracChargeFitExps += fracChargeFitExp
 
-  crm.calculate()
-  sys.exit(0)
+  #crm.calculate()
 
   fig, ax = mpl.subplots()
   ax.hist(lifes/1000.,bins=50,range=[0,10],histtype='step',label="Bruce Method")
@@ -837,7 +851,7 @@ if __name__ == "__main__":
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Error on Electron Lifetime [ms]")
   fig.savefig("ToyMPVLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
-  fig.savefig("ToyLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyMPVLifetimeErrVLife_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
   mpl.close(fig)
 
   fig, ax = mpl.subplots()
@@ -858,6 +872,54 @@ if __name__ == "__main__":
   fig.text(0.15,0.955,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left',va='bottom')
   fig.savefig("ToyMPVBinChi2_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
   fig.savefig("ToyMPVBinChi2_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  mpl.close(fig)
+
+  allFracChargeFits = numpy.array(allFracChargeFits)
+  fig, ax = mpl.subplots()
+  hist = ax.hist2d(allFracChargeFits[:,0],allFracChargeFits[:,1],bins=(nBins,int(pointsPerBin+1)),range=[[0,nBins*usPerBin],[-0.5,int(pointsPerBin)+0.5]])
+  ax.set_xlabel("Drift Time [us]")
+  ax.set_ylabel("N Hits Fitted / Bin")
+  cbar = fig.colorbar(hist[3])
+  cbar.set_label("Cluster Time Bins / Hist Bin",rotation=270,va="bottom")
+  fig.text(0.15,0.955,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left',va='bottom')
+  fig.savefig("ToyFracFitVDrift_Bruce_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyFracFitVDrift_Bruce_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  mpl.close(fig)
+
+  fig, ax = mpl.subplots()
+  ax.hist(allFracChargeFits[:,1],bins=int(pointsPerBin+1),range=[-0.5,int(pointsPerBin)+0.5],histtype='step',label="All",density=True)
+  ax.hist(allFracChargeFits[allFracChargeFits[:,0] == allFracChargeFits[0,0],1],bins=int(pointsPerBin+1),range=[-0.5,int(pointsPerBin)+0.5],histtype='step',label="0 < t < {0:.0f} us".format(usPerBin),density=True)
+  ax.hist(allFracChargeFits[allFracChargeFits[:,0] == allFracChargeFits[-1,0],1],bins=int(pointsPerBin+1),range=[-0.5,int(pointsPerBin)+0.5],histtype='step',label="{0:.0f} us < t < {1:.0f} us".format(usPerBin*(nBins-1),usPerBin*nBins),density=True)
+  ax.set_xlabel("N Hits Fitted / Bin")
+  ax.set_ylabel("Normalized Cluster Time Bins / Hist Bin")
+  ax.legend(loc="upper left")
+  fig.text(0.15,0.955,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left',va='bottom')
+  fig.savefig("ToyFracFit_Bruce_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyFracFit_Bruce_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  mpl.close(fig)
+
+  allFracChargeFitExps = numpy.array(allFracChargeFitExps)
+  fig, ax = mpl.subplots()
+  hist = ax.hist2d(allFracChargeFitExps[:,0],allFracChargeFitExps[:,1],bins=(nBins,int(pointsPerBin+1)),range=[[0,nBins*usPerBin],[-0.5,int(pointsPerBin)+0.5]])
+  ax.set_xlabel("Drift Time [us]")
+  ax.set_ylabel("N Hits Fitted / Bin")
+  cbar = fig.colorbar(hist[3])
+  cbar.set_label("Cluster Time Bins / Hist Bin",rotation=270,va="bottom")
+  fig.text(0.15,0.955,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left',va='bottom')
+  fig.savefig("ToyFracFitVDrift_Exp_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyFracFitVDrift_Exp_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
+  mpl.close(fig)
+
+  fig, ax = mpl.subplots()
+  ax.hist(allFracChargeFitExps[:,1],bins=int(pointsPerBin+1),range=[-0.5,int(pointsPerBin)+0.5],histtype='step',label="All",density=True)
+  ax.hist(allFracChargeFitExps[allFracChargeFitExps[:,0] == allFracChargeFitExps[0,0],1],bins=int(pointsPerBin+1),range=[-0.5,int(pointsPerBin)+0.5],histtype='step',label="0 < t < {0:.0f} us".format(usPerBin),density=True)
+  ax.hist(allFracChargeFitExps[allFracChargeFitExps[:,0] == allFracChargeFitExps[-1,0],1],bins=int(pointsPerBin+1),range=[-0.5,int(pointsPerBin)+0.5],histtype='step',label="{0:.0f} us < t < {1:.0f} us".format(usPerBin*(nBins-1),usPerBin*nBins),density=True)
+  ax.set_xlabel("N Hits Fitted / Bin")
+  ax.set_ylabel("Normalized Cluster Time Bins / Hist Bin")
+  ax.legend(loc="upper left")
+  fig.text(0.15,0.955,"{}Hits: {} Bins: {}, Hits/Bin: {:.1f}".format(distTypeLabel,int(nBins*pointsPerBin),nBins,pointsPerBin),ha='left',va='bottom')
+  fig.savefig("ToyFracFit_Exp_{}_bins{}_hitpbin{:.0f}.png".format(distType,nBins,pointsPerBin))
+  fig.savefig("ToyFracFit_Exp_{}_bins{}_hitpbin{:.0f}.pdf".format(distType,nBins,pointsPerBin))
   mpl.close(fig)
 
   print "End time: ", datetime.datetime.now().replace(microsecond=0).isoformat(' ')
