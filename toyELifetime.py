@@ -259,32 +259,48 @@ def bruceMethod(ts,qMeass,usPerBin=100.,suffix="",doLogFit=False,doPlots=True,ch
     A = constParam
     B = -1./lifetime
   else:
-    tck /= cnt
-    ave /= cnt
-    
-    maxChg = ave * 1.3
-    minChg = ave * 0.5
+    doQuantileTruncation = True
+    minChg = numpy.zeros(nBins)
+    maxChg = numpy.zeros(nBins)
+    if doQuantileTruncation:
+      for ihist in range(nBins):
+        inBin = numpy.logical_and(ts >= (ihist*usPerBin),ts < ((ihist+1)*usPerBin))
+        percentiles = numpy.percentile(qMeass[inBin],[5,50])
+        minChg[ihist] = percentiles[0]
+        maxChg[ihist] = percentiles[1]
+      if doPlots:
+        patchList = []
+        for ihist in range(nBins):
+          patchList.append(matplotlib.patches.Rectangle((ihist*usPerBin,minChg[ihist]),usPerBin,maxChg[ihist]))
+        patchCollection = matplotlib.collections.PatchCollection(patchList,facecolor='0.7',edgecolor='0.7')
+        ax.add_collection(patchCollection)
+    else:
+      tck /= cnt
+      ave /= cnt
+      
+      maxChg = ave * 1.3
+      minChg = ave * 0.5
 
-    if doPlots:
-      ax.plot(tck,ave,'or')
-      #gausfunc = root.TF1("gausfunc","gaus",0,1500)
-      #for iBin in range(nBins):
-      #  fitrslt = binHists[iBin].Fit(gausfunc,"S","",0,ave[iBin]*1.5)
-      #  chi2ndof = fitrslt.Chi2()/fitrslt.Ndf()
-      #  gausmu = fitrslt.Parameter(1)
-      #  gausmuerr = fitrslt.ParError(1)
-      #  gaussigma = fitrslt.Parameter(2)
-      #  gaussigmaerr = fitrslt.ParError(2)
-      #  setHistTitles(binHists[iBin],"Charge","Hits")
-      #  binHists[iBin].Sumw2()
-      #  binHists[iBin].Draw()
-      #  gausfunc.Draw("same")
-      #  drawStandardCaptions(canvas,"Cluster {} Bin {}".format(suffix,iBin),
-      #                captionright1="Truncated: {:4.0f}-{:4.0f}".format(minChg[iBin],maxChg[iBin]),
-      #                captionright2="Ave: {:4.0f}".format(ave[iBin]),
-      #                captionright3="T: {:4.0f} Cnt: {:4.0f}".format(tck[iBin],cnt[iBin])
-      #        )
-      #  canvas.SaveAs("BinHist_{}_bin{}.png".format(suffix,iBin))
+      if doPlots:
+        ax.plot(tck,ave,'or')
+        #gausfunc = root.TF1("gausfunc","gaus",0,1500)
+        #for iBin in range(nBins):
+        #  fitrslt = binHists[iBin].Fit(gausfunc,"S","",0,ave[iBin]*1.5)
+        #  chi2ndof = fitrslt.Chi2()/fitrslt.Ndf()
+        #  gausmu = fitrslt.Parameter(1)
+        #  gausmuerr = fitrslt.ParError(1)
+        #  gaussigma = fitrslt.Parameter(2)
+        #  gaussigmaerr = fitrslt.ParError(2)
+        #  setHistTitles(binHists[iBin],"Charge","Hits")
+        #  binHists[iBin].Sumw2()
+        #  binHists[iBin].Draw()
+        #  gausfunc.Draw("same")
+        #  drawStandardCaptions(canvas,"Cluster {} Bin {}".format(suffix,iBin),
+        #                captionright1="Truncated: {:4.0f}-{:4.0f}".format(minChg[iBin],maxChg[iBin]),
+        #                captionright2="Ave: {:4.0f}".format(ave[iBin]),
+        #                captionright3="T: {:4.0f} Cnt: {:4.0f}".format(tck[iBin],cnt[iBin])
+        #        )
+        #  canvas.SaveAs("BinHist_{}_bin{}.png".format(suffix,iBin))
 
     
     
@@ -712,7 +728,7 @@ class ChargeRatioMethod(object):
 if __name__ == "__main__":
   print "Start time: ", datetime.datetime.now().replace(microsecond=0).isoformat(' ')
 
-  nClusters = 10000
+  nClusters = 1000
   #nBins = 10
   #pointsPerBin = 400./nBins
   nBins = 5
@@ -749,21 +765,20 @@ if __name__ == "__main__":
     doPlots = (iCluster < 5)
     #doPlots = False
     ts, qMeass = generateCluster(qMPV,lifetimeTrue,int(nBins*pointsPerBin),pointsPerBin/usPerBin,doGaus,doLinear)
-    #lifes[iCluster], lifesErr[iCluster], lifesChi2[iCluster], DUMMY = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
+    lifes[iCluster], lifesErr[iCluster], lifesChi2[iCluster], DUMMY = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,doPlots=doPlots,assumeLinear=doLinear,doRootExpFit=doRootExpFit,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     ##lifesNumpy[iCluster], lifesNumpyErr[iCluster] = bruceNumpy(ts,qMeass,usPerBin,suffix="_"+caseStr+"_{}".format(iCluster),doLogFit=doLogFit,assumeLinear=doLinear,doRootExpFit=doRootExpFit,doPlots=doPlots,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     #lifesMPV[iCluster], lifesMPVErr[iCluster], lifesMPVChi2[iCluster], binChi2s = bruceMethod(ts,qMeass,usPerBin,suffix="_"+caseStr+"_MPV_{}".format(iCluster),doPlots=doPlots,assumeLinear=doLinear,doFitBinsAndExp=True,qMPV=qMPV,lifetimeTrue=lifetimeTrue)
     #allBinChi2s += binChi2s
-    crm.processCluster(ts,qMeass)
+    #crm.processCluster(ts,qMeass)
     #lifesDirect[iCluster], lifesDirectErr[iCluster] = directFitExpHits(ts,qMeass,suffix="_"+caseStr+"_Direct_{}".format(iCluster),doPlots=doPlots)
 
-  crm.calculate()
-  sys.exit(0)
+  #crm.calculate()
 
   fig, ax = mpl.subplots()
   ax.hist(lifes/1000.,bins=50,range=[0,10],histtype='step',label="Bruce Method")
   #ax.hist(lifesNumpy/1000.,bins=50,range=[0,10],histtype='step',label="Bruce Numpy")
-  ax.hist(lifesDirect/1000.,bins=50,range=[0,10],histtype='step',label="Direct Exp Fit")
-  ax.hist(lifesMPV/1000.,bins=50,range=[0,10],histtype='step',label="Fit Bins and Exp")
+  #ax.hist(lifesDirect/1000.,bins=50,range=[0,10],histtype='step',label="Direct Exp Fit")
+  #ax.hist(lifesMPV/1000.,bins=50,range=[0,10],histtype='step',label="Fit Bins and Exp")
   ax.axvline(lifetimeTrue/1000.,c='m')
   ax.set_xlabel("Electron Lifetime [ms]")
   ax.set_ylabel("Toy Clusters / Bin")
@@ -773,6 +788,7 @@ if __name__ == "__main__":
   fig.savefig("ToyLifetime_{}_bins{}_hitpbin{:.1f}.pdf".format(distType,nBins,pointsPerBin))
   mpl.close(fig)
 
+  sys.exit(0)
 
   fig, ax = mpl.subplots()
   ax.hist(lifesChi2,bins=50,range=[0,10],histtype='step',label="Bruce")

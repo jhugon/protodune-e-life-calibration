@@ -20,7 +20,12 @@ import uuid
 import numbers
 import copy
 import itertools
-#import matplotlib.pyplot as mpl
+try:
+  import matplotlib.pyplot as mpl
+  import matplotlib.patches
+  import matplotlib.collections
+except ImportError:
+  pass
 
 class DataMCStack:
   def __init__(self,fileConfigDatas,fileConfigMCs,histConfigs,canvas,treename,outPrefix="",outSuffix="Hist",nMax=sys.maxint):
@@ -3044,6 +3049,21 @@ def drawGraphs(canvas,graphs,xTitle,yTitle,yStartZero=True,xlims=None,ylims=None
   for iGraph in rangeOfGraphs:
     graphs[iGraph].Draw(drawOptionsList[iGraph])
   return axisHist
+
+def mplDrawErrorRegion(ax,xs,ys,dxs,dys,**kargs):
+  """
+  Draws rectangles as error boxes, with rectangles centered at xs, ys
+    with widths 2*dxs and heights 2*dys
+    kargs are passed to matplotlib.collections.PatchCollection
+  """
+  assert(len(xs)==len(ys))
+  assert(len(dxs)==len(dys))
+  assert(len(dxs)==len(xs))
+  patchList = []
+  for x, y, dx, dy in zip(xs,ys,dxs,dys):
+    patchList.append(matplotlib.patches.Rectangle((x-dx,y-dy),2*dx,2*dy))
+  patchCollection = matplotlib.collections.PatchCollection(patchList,**kargs)
+  ax.add_collection(patchCollection)
 
 def smallMultiples(histLists,axisLabels=None,xlimits=[0.001,0.999],ylimits=[0.001,0.999],xlabel="X", ylabel="Counts",wide=True):
   """
