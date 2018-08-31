@@ -1197,6 +1197,9 @@ class DataMCCategoryStack(DataMCStack):
       canvas.SetLogx(False)
 
 def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],xlim=[],ylim=[],logy=False,colors=None,normalize=False,rebin=None):
+  if len(hists) == 0:
+    print "Warning: plotHistsSimple hists is empty for "+outfileprefix
+    return
   if colors is None:
     colors = COLORLIST
   freeTopSpace = 0.35
@@ -1209,6 +1212,10 @@ def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=
     for hist in hists:
       hist.Rebin(rebin)
   axisHist = makeStdAxisHist(hists,logy=logy,freeTopSpace=freeTopSpace,xlim=xlim,ylim=ylim)
+  if xtitle is None:
+    xtitle = hists[0].GetXaxis().GetTitle()
+  if ytitle is None:
+    ytitle = hists[0].GetYaxis().GetTitle()
   setHistTitles(axisHist,xtitle,ytitle)
   axisHist.Draw()
   for hist, color in zip(hists,colors):
@@ -1228,16 +1235,29 @@ def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=
   canvas.SaveAs(outfileprefix+".png")
   canvas.SaveAs(outfileprefix+".pdf")
 
-def plotHist2DSimple(hist,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""]):
+def plotHist2DSimple(hist,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],profileX=False,profileY=False):
   setupCOLZFrame(canvas)
   hist.UseCurrentStyle()
+  if xtitle is None:
+    xtitle = hist.GetXaxis().GetTitle()
+  if ytitle is None:
+    ytitle = hist.GetYaxis().GetTitle()
   setHistTitles(hist,xtitle,ytitle)
   hist.Draw("colz")
   thisCaptionArgs = [canvas] + captionArgs
   drawStandardCaptions(*thisCaptionArgs)
+  profX = None
+  profY = None
+  if profileX:
+     profX = hist.ProfileX()
+     profX.Draw("Esame")
+  if profileY:
+     profY = hist.ProfileX()
+     profY.Draw("Esame")
   canvas.SaveAs(outfileprefix+".png")
   #c.SaveAs(outfileprefix+".pdf")
   setupCOLZFrame(canvas,True) #reset frame
+  return hist
 
 def getOrdinalStr(inInt):
   result = str(inInt)
@@ -2748,15 +2768,17 @@ def copyTreeBranchToNewNameTree(tree,oldBranchName,newBranchName):
   newBranch.SetAddress(0)
   return result
 
-def getHistMax(hist):
+def getHistMax(hist,includeErrorBar=False):
   if hist.InheritsFrom("TEfficiency"):
     return 1.0
   else:
     iBin = hist.GetMaximumBin()
     result = hist.GetBinContent(iBin)
+    if includeErrorBar:
+      result += hist.GetBinError(iBin)
     return result
 
-def makeStdAxisHist(histList,logy=False,freeTopSpace=0.5,xlim=[],ylim=[]):
+def makeStdAxisHist(histList,logy=False,freeTopSpace=0.5,xlim=[],ylim=[],includeErrorBar=False):
   assert(len(histList)>0)
   assert(len(xlim)==0 or len(xlim)==2)
   assert(len(ylim)==0 or len(ylim)==2)
@@ -2767,7 +2789,7 @@ def makeStdAxisHist(histList,logy=False,freeTopSpace=0.5,xlim=[],ylim=[]):
   xMax = -1e15
   for hist in histList:
     if isinstance(hist,root.TH1) or isinstance(hist,root.TEfficiency):
-        histMax = getHistMax(hist)
+        histMax = getHistMax(hist,includeErrorBar=includeErrorBar)
         yMax = max(yMax,histMax)
         if logy:
             histMin = hist.GetMinimum(0.) # should get minimum bin greater than 0.
@@ -2977,7 +2999,7 @@ def Hist3D(*args,**kargs):
 def drawVline(axisHist,x):
   axis = axisHist.GetYaxis()
   nBins = axis.GetNbins()
-  yLow = axis.GetBinLowEdge(0)
+  yLow = axis.GetBinLowEdge(1)
   yHigh = axis.GetBinUpEdge(nBins)
   result = root.TGraph()
   result.SetPoint(0,x,yLow)
@@ -2989,7 +3011,7 @@ def drawVline(axisHist,x):
 def drawHline(axisHist,y):
   axis = axisHist.GetXaxis()
   nBins = axis.GetNbins()
-  xLow = axis.GetBinLowEdge(0)
+  xLow = axis.GetBinLowEdge(1)
   xHigh = axis.GetBinUpEdge(nBins)
   result = root.TGraph()
   result.SetPoint(0,xLow,y)
@@ -2997,6 +3019,29 @@ def drawHline(axisHist,y):
   result.SetLineColor(root.kGray+1)
   result.Draw("lsame")
   return result
+
+def drawVSpan(axisHist,xMin,xMax):
+  axis = axisHist.GetYaxis()
+  nBins = axis.GetNbins()
+  yLow = axis.GetBinLowEdge(1)
+  yHigh = axis.GetBinUpEdge(nBins)
+  result = root.TBox(xMin,yLow,xMax,yHigh)
+  result.SetLineWidth(0)
+  result.SetFillColor(root.kGray+1)
+  result.Draw("same")
+  return result
+
+def drawHSpan(axisHist,yMin,yMax):
+  axis = axisHist.GetXaxis()
+  nBins = axis.GetNbins()
+  xLow = axis.GetBinLowEdge(1)
+  xHigh = axis.GetBinUpEdge(nBins)
+  result = root.TBox(xLow,yMin,xHigh,yMax)
+  result.SetLineWidth(0)
+  result.SetFillColor(root.kGray+1)
+  result.Draw("same")
+  return result
+
 
 def drawGraphs(canvas,graphs,xTitle,yTitle,yStartZero=True,xlims=None,ylims=None,freeTopSpace=0.,drawOptions="PEZ",reverseDrawOrder=False):
   xMin = 1e15
