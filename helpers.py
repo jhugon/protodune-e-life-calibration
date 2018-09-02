@@ -1196,10 +1196,11 @@ class DataMCCategoryStack(DataMCStack):
       canvas.SetLogy(False)
       canvas.SetLogx(False)
 
-def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],xlim=[],ylim=[],logy=False,colors=None,normalize=False,rebin=None):
+def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],xlim=[],ylim=[],drawOptions="hist",logy=False,colors=None,normalize=False,rebin=None):
   if len(hists) == 0:
     print "Warning: plotHistsSimple hists is empty for "+outfileprefix
     return
+  assert(len(labels) == len(hists) or labels is None)
   if colors is None:
     colors = COLORLIST
   freeTopSpace = 0.35
@@ -1211,6 +1212,9 @@ def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=
   if not (rebin is None):
     for hist in hists:
       hist.Rebin(rebin)
+  if not (drawOptions is list):
+    drawOptions = [drawOptions]*len(hists)
+  assert(len(drawOptions) == len(hists))
   axisHist = makeStdAxisHist(hists,logy=logy,freeTopSpace=freeTopSpace,xlim=xlim,ylim=ylim)
   if xtitle is None:
     xtitle = hists[0].GetXaxis().GetTitle()
@@ -1218,14 +1222,14 @@ def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=
     ytitle = hists[0].GetYaxis().GetTitle()
   setHistTitles(axisHist,xtitle,ytitle)
   axisHist.Draw()
-  for hist, color in zip(hists,colors):
+  for hist, color, drawOpt in reversed(zip(hists,colors,drawOptions)):
     hist.UseCurrentStyle()
     if normalize:
         normalizeHist(hist)
     if len(hists) > 1:
       hist.SetLineColor(color)
       hist.SetMarkerColor(color)
-    hist.Draw("same")
+    hist.Draw("same"+drawOpt)
   leg = None
   if not (labels is None):
     legOptions = ["l"]*len(hists)
