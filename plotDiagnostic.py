@@ -61,15 +61,35 @@ if __name__ == "__main__":
       "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 500 us",
       "postfix": "_mcc10_SCE_400hits_500us",
     },
-    {
-      "fn": "Lifetime_100_SCE_100hits8bins.root",
-      "title": "MCC10, 100 Events, SCE, #geq 100 Hits, #geq 800 us",
-      "postfix": "_mcc10_SCE_100hits_800us",
-    },
+    #{
+    #  "fn": "Lifetime_100_SCE_100hits8bins.root",
+    #  "title": "MCC10, 100 Events, SCE, #geq 100 Hits, #geq 800 us",
+    #  "postfix": "_mcc10_SCE_100hits_800us",
+    #},
     {
       "fn": "Lifetime_100_SCE_400hits8bins.root",
       "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 800 us",
       "postfix": "_mcc10_SCE_400hits_800us",
+    },
+    #{
+    #  "fn": "Lifetime_SCE_hits400_maxBins7.root",
+    #  "title": "MCC10, 100 Events, SCE, #geq 400 Hits, 500 us #leq cluster < 800 us",
+    #  "postfix": "_mcc10_SCE_400hits_500to800us",
+    #},
+    #{
+    #  "fn": "Lifetime_SCE_400hits_5Bins_200usBin.root",
+    #  "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 1000 us, Bins 200 us",
+    #  "postfix": "_mcc10_SCE_400hits_1000us_bin200us",
+    #},
+    #{
+    #  "fn": "Lifetime_SCE_400hits_5Bins_50usBin.root",
+    #  "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 250 us, Bins 50 us",
+    #  "postfix": "_mcc10_SCE_400hits_250us_bin50us",
+    #},
+    {
+      "fn": "Lifetime_SCE_400hits_5Bins_150usBin.root",
+      "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 750 us, Bins 150 us",
+      "postfix": "_mcc10_SCE_400hits_750us_bin150us",
     },
   ]
   suptitle = "MCC10, 100 Events, Include SCE"
@@ -81,7 +101,7 @@ if __name__ == "__main__":
     {
       "inname": "lifetime/Life",
       "outname": "LifetimeAll",
-      #"normalize": True,
+      "normalize": True,
     },
     {
       "inname": "lifetime/ChiDOFZoom",
