@@ -51,16 +51,21 @@ if __name__ == "__main__":
     #  "title": "MCC10, 100 Events, No SCE, #geq 400 Hits, #geq 800 us",
     #  "postfix": "_mcc10_noSCE_400hits_800us",
     #},
-    {
-      "fn": "Lifetime_100_SCE.root",
-      "title": "MCC10, 100 Events, SCE, #geq 100 Hits, #geq 500 us",
-      "postfix": "_mcc10_SCE_100hits_500us",
-    },
+    #{
+    #  "fn": "Lifetime_SCE_400hits_5Bins_50usBin_1kevt.root",
+    #  "title": "MCC10, 1000 Events, SCE, #geq 400 Hits, #geq 250 us, Bins 50 us",
+    #  "postfix": "_mcc10_SCE_400hits_250us_bin50us_1kevt",
+    #},
     {
       "fn": "Lifetime_100_SCE_400hits.root",
       "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 500 us",
       "postfix": "_mcc10_SCE_400hits_500us",
     },
+    #{
+    #  "fn": "Lifetime_100_SCE.root",
+    #  "title": "MCC10, 100 Events, SCE, #geq 100 Hits, #geq 500 us",
+    #  "postfix": "_mcc10_SCE_100hits_500us",
+    #},
     #{
     #  "fn": "Lifetime_100_SCE_100hits8bins.root",
     #  "title": "MCC10, 100 Events, SCE, #geq 100 Hits, #geq 800 us",
@@ -86,16 +91,26 @@ if __name__ == "__main__":
     #  "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 250 us, Bins 50 us",
     #  "postfix": "_mcc10_SCE_400hits_250us_bin50us",
     #},
-    {
-      "fn": "Lifetime_SCE_400hits_5Bins_50usBin_1kevt.root",
-      "title": "MCC10, 1000 Events, SCE, #geq 400 Hits, #geq 250 us, Bins 50 us",
-      "postfix": "_mcc10_SCE_400hits_250us_bin50us_1kevt",
-    },
     #{
     #  "fn": "Lifetime_SCE_400hits_5Bins_150usBin.root",
     #  "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 750 us, Bins 150 us",
     #  "postfix": "_mcc10_SCE_400hits_750us_bin150us",
     #},
+    {
+      "fn": "Lifetime_SCE_hits400_bins5_cutPercentile2to85.root",
+      "title": "MCC10, 100 Events, SCE, #geq 100 Hits, #geq 500 us, Cut 2%-85%",
+      "postfix": "_mcc10_SCE_100hits_500us_cutPercentile2to85",
+    },
+    {
+      "fn": "Lifetime_SCE_hits400_bins5_cutPercentile5to80.root",
+      "title": "MCC10, 100 Events, SCE, #geq 100 Hits, #geq 500 us, Cut 5%-80%",
+      "postfix": "_mcc10_SCE_100hits_500us_cutPercentile5to80",
+    },
+    {
+      "fn": "Lifetime_SCE_hits400_bins5_cutPercentile10to70.root",
+      "title": "MCC10, 100 Events, SCE, #geq 100 Hits, #geq 500 us, Cut 10%-70%",
+      "postfix": "_mcc10_SCE_100hits_500us_cutPercentile10to70",
+    },
   ]
   suptitle = "MCC10, 100 Events, Include SCE"
 
@@ -108,14 +123,14 @@ if __name__ == "__main__":
       "outname": "LifetimeAll",
       "normalize": False,
       "rebin": 2,
-      "drawOptions": "",
+      #"drawOptions": "",
     },
     {
       "inname": "lifetime/Life",
       "outname": "LifetimeAll_normed",
       "normalize": True,
       "rebin": 2,
-      "drawOptions": "P0E0",
+      #"drawOptions": "P0E0",
     },
     #{
     #  "inname": "lifetime/ChiDOFZoom",
