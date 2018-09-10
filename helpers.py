@@ -1196,11 +1196,14 @@ class DataMCCategoryStack(DataMCStack):
       canvas.SetLogy(False)
       canvas.SetLogx(False)
 
-def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],xlim=[],ylim=[],drawOptions="hist",logy=False,colors=None,normalize=False,rebin=None):
+def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],xlim=[],ylim=[],drawOptions="hist",logy=False,colors=None,normalize=False,rebin=None,dontclone=False):
   if len(hists) == 0:
     print "Warning: plotHistsSimple hists is empty for "+outfileprefix
     return
   assert(len(labels) == len(hists) or labels is None)
+  hists = [i.Clone(uuid.uuid1().hex) for i in hists]
+  for hist in hists:
+    hist.Sumw2(True)
   if colors is None:
     colors = COLORLIST
   freeTopSpace = 0.35
@@ -1229,7 +1232,9 @@ def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=
     if len(hists) > 1:
       hist.SetLineColor(color)
       hist.SetMarkerColor(color)
-    hist.Draw("same"+drawOpt)
+    drawstr = "same"+drawOpt
+    print xtitle, drawstr
+    hist.Draw(drawstr)
   leg = None
   if not (labels is None):
     legOptions = ["l"]*len(hists)
@@ -1239,7 +1244,7 @@ def plotHistsSimple(hists,labels,xtitle,ytitle,canvas,outfileprefix,captionArgs=
   canvas.SaveAs(outfileprefix+".png")
   canvas.SaveAs(outfileprefix+".pdf")
 
-def plotHist2DSimple(hist,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],profileX=False,profileY=False):
+def plotHist2DSimple(hist,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],profileX=False,profileY=False,xlims=None,ylims=None):
   setupCOLZFrame(canvas)
   hist.UseCurrentStyle()
   if xtitle is None:
@@ -1258,6 +1263,18 @@ def plotHist2DSimple(hist,xtitle,ytitle,canvas,outfileprefix,captionArgs=[""],pr
   if profileY:
      profY = hist.ProfileX()
      profY.Draw("Esame")
+  if xlims is None:
+    pass
+  elif type(xlims) is list and len(xlims) == 2:
+    hist.GetXaxis().SetRangeUser(*xlims)
+  else:
+    raise ValueError("xlims must be list of len 2 "+str(xlims))
+  if ylims is None:
+    pass
+  elif type(ylims) is list and len(ylims) == 2:
+    hist.GetYaxis().SetRangeUser(*ylims)
+  else:
+    raise ValueError("ylims must be list of len 2 "+str(ylims))
   canvas.SaveAs(outfileprefix+".png")
   #c.SaveAs(outfileprefix+".pdf")
   setupCOLZFrame(canvas,True) #reset frame

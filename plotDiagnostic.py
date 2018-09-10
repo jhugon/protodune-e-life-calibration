@@ -66,11 +66,11 @@ if __name__ == "__main__":
     #  "title": "MCC10, 100 Events, SCE, #geq 100 Hits, #geq 800 us",
     #  "postfix": "_mcc10_SCE_100hits_800us",
     #},
-    {
-      "fn": "Lifetime_100_SCE_400hits8bins.root",
-      "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 800 us",
-      "postfix": "_mcc10_SCE_400hits_800us",
-    },
+    #{
+    #  "fn": "Lifetime_100_SCE_400hits8bins.root",
+    #  "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 800 us",
+    #  "postfix": "_mcc10_SCE_400hits_800us",
+    #},
     #{
     #  "fn": "Lifetime_SCE_hits400_maxBins7.root",
     #  "title": "MCC10, 100 Events, SCE, #geq 400 Hits, 500 us #leq cluster < 800 us",
@@ -87,10 +87,15 @@ if __name__ == "__main__":
     #  "postfix": "_mcc10_SCE_400hits_250us_bin50us",
     #},
     {
-      "fn": "Lifetime_SCE_400hits_5Bins_150usBin.root",
-      "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 750 us, Bins 150 us",
-      "postfix": "_mcc10_SCE_400hits_750us_bin150us",
+      "fn": "Lifetime_SCE_400hits_5Bins_50usBin_1kevt.root",
+      "title": "MCC10, 1000 Events, SCE, #geq 400 Hits, #geq 250 us, Bins 50 us",
+      "postfix": "_mcc10_SCE_400hits_250us_bin50us_1kevt",
     },
+    #{
+    #  "fn": "Lifetime_SCE_400hits_5Bins_150usBin.root",
+    #  "title": "MCC10, 100 Events, SCE, #geq 400 Hits, #geq 750 us, Bins 150 us",
+    #  "postfix": "_mcc10_SCE_400hits_750us_bin150us",
+    #},
   ]
   suptitle = "MCC10, 100 Events, Include SCE"
 
@@ -101,30 +106,49 @@ if __name__ == "__main__":
     {
       "inname": "lifetime/Life",
       "outname": "LifetimeAll",
-      "normalize": True,
+      "normalize": False,
+      "rebin": 2,
+      "drawOptions": "",
     },
     {
-      "inname": "lifetime/ChiDOFZoom",
-      "outname": "Chi2",
+      "inname": "lifetime/Life",
+      "outname": "LifetimeAll_normed",
       "normalize": True,
+      "rebin": 2,
+      "drawOptions": "P0E0",
     },
-    {
-      "inname": "lifetime/ChiDOFZoom",
-      "outname": "Chi2",
-      "normalize": True,
-    },
-    {
-      "inname": "lifetime/MaxDriftTime",
-      "outname": "MaxDriftTime",
-      "normalize": True,
-    },
+    #{
+    #  "inname": "lifetime/ChiDOFZoom",
+    #  "outname": "Chi2",
+    #  "normalize": True,
+    #},
+    #{
+    #  "inname": "lifetime/ChiDOFZoom",
+    #  "outname": "Chi2",
+    #  "normalize": True,
+    #},
+    #{
+    #  "inname": "lifetime/MaxDriftTime",
+    #  "outname": "MaxDriftTime",
+    #  "normalize": True,
+    #},
   ]
 
   for histConfig in histConfigs:
     inname = histConfig["inname"]
     normalize = False
+    drawOptions = "hist"
+    try:
+      drawOptions = histConfig["drawOptions"]
+    except KeyError:
+      pass
     try:
       normalize = histConfig["normalize"]
+    except KeyError:
+      pass
+    rebin = None
+    try:
+      rebin = histConfig["rebin"]
     except KeyError:
       pass
     hists = []
@@ -137,7 +161,7 @@ if __name__ == "__main__":
       title = title.replace("MCC10, 100 Events, No SCE, ","")
       labels.append(title)
       hists.append(hist)
-    plotHistsSimple(hists,labels,None,None,c,histConfig["outname"],normalize=normalize,captionArgs=[suptitle])
+    plotHistsSimple(hists,labels,None,None,c,histConfig["outname"],normalize=normalize,captionArgs=[suptitle],rebin=rebin,drawOptions=drawOptions)
 
     #plotHistsSimple([f.Get("lifetime/Life")],None,"Electron Lifetime [ms]","Clusters / Bin",c,"LifetimeAll"+postfix,captionArgs=[title],rebin=None)
 
@@ -256,9 +280,9 @@ if __name__ == "__main__":
 
     #plotHistsSimple([f.Get("lifetime/LifeInvCA"),f.Get("lifetime/LifeInvAC")],["Cathode to Anode","Anode to Cathode"],"1/Lifetime [ms^{-1}]","Normalized Clusters / Bin",c,"LifeInvCAAC"+postfix,captionArgs=[title],normalize=True)
 
-    plotHist2DSimple(f.Get("lifetime/LifeVChargeEff"),"Cluster Charge Efficiency","Electron Lifetime [ms]",c,"LifeVChargeEff"+postfix,captionArgs=[title])
-    plotHist2DSimple(f.Get("lifetime/LifeVZenith"),"True Particle Zenith Angle [deg]","Electron Lifetime [ms]",c,"LifeVZenithAngle"+postfix,captionArgs=[title])
-    plotHist2DSimple(f.Get("lifetime/LifeVAzimuth"),"True Particle Azimuth Angle [deg]","Electron Lifetime [ms]",c,"LifeVAzimuthAngle"+postfix,captionArgs=[title])
+    #plotHist2DSimple(f.Get("lifetime/LifeVChargeEff"),"Cluster Charge Efficiency","Electron Lifetime [ms]",c,"LifeVChargeEff"+postfix,captionArgs=[title])
+    #plotHist2DSimple(f.Get("lifetime/LifeVZenith"),"True Particle Zenith Angle [deg]","Electron Lifetime [ms]",c,"LifeVZenithAngle"+postfix,captionArgs=[title])
+    #plotHist2DSimple(f.Get("lifetime/LifeVAzimuth"),"True Particle Azimuth Angle [deg]","Electron Lifetime [ms]",c,"LifeVAzimuthAngle"+postfix,captionArgs=[title])
 
     plotHist2DSimple(f.Get("lifetime/LifeVNHits"),"Number of Hits in Cluster","Electron Lifetime [ms]",c,"LifeVNHits"+postfix,captionArgs=[title])
     plotHist2DSimple(f.Get("lifetime/LifeVNBins"),"Number of Histogram Bins","Electron Lifetime [ms]",c,"LifeVNBins"+postfix,captionArgs=[title])
@@ -269,3 +293,12 @@ if __name__ == "__main__":
     plotHist2DSimple(f.Get("lifetime/NHitsPerBinVNHits"),None,None,c,"NHitsPerBinVNHits"+postfix,captionArgs=[title],profileX=True)
     plotHist2DSimple(f.Get("lifetime/NHitsPerBinVNBins"),None,None,c,"NHitsPerBinVNBins"+postfix,captionArgs=[title],profileX=True)
     plotHist2DSimple(f.Get("lifetime/LifeVMinNHitsPerBin"),None,None,c,"LifeVMinNHitsPerBin"+postfix,captionArgs=[title],profileX=True)
+
+  f = root.TFile("Lifetime_SCE_getPercentiles.root")
+  f.cd("lifetime")
+  f.ls()
+  plotHist2DSimple(f.Get("lifetime/PercentileHighTrimVDriftTime"),None,None,c,"PercentileHighTrimVDriftTime",captionArgs=["100 Events, SCE"],profileX=True,ylims=[0,100])
+  plotHist2DSimple(f.Get("lifetime/PercentileLowTrimVDriftTime"),None,None,c,"PercentileLowTrimVDriftTime",captionArgs=["100 Events, SCE"],profileX=True,ylims=[0,100])
+  plotHist2DSimple(f.Get("lifetime/ChargeHighTrimVDriftTime"),None,None,c,"ChargeHighTrimVDriftTime",captionArgs=["100 Events, SCE"],profileX=True,ylims=[0,1000])
+  plotHist2DSimple(f.Get("lifetime/ChargeLowTrimVDriftTime"),None,None,c,"ChargeLowTrimVDriftTime",captionArgs=["100 Events, SCE"],profileX=True,ylims=[0,1000])
+
